@@ -1,16 +1,22 @@
 "use client";
 
-import { Suspense } from "react";
-
+import { Suspense, useEffect } from "react";
 import { Grid } from "@react-three/drei";
 
+import type { RenderManifest } from "@/components/flow/types";
 import { GeneratedGlb } from "@/components/scene/GeneratedGlb";
 
 type ViewportSceneProps = {
   modelUrl?: string | null;
+  renderManifest?: RenderManifest | null;
+  selectedNodeIds: string[];
 };
 
-export function ViewportScene({ modelUrl }: ViewportSceneProps) {
+export function ViewportScene({ modelUrl, renderManifest, selectedNodeIds }: ViewportSceneProps) {
+  useEffect(() => {
+    console.log("ViewportScene modelUrl:", modelUrl);
+  }, [modelUrl]);
+
   return (
     <>
       <ambientLight intensity={1.2} />
@@ -23,29 +29,28 @@ export function ViewportScene({ modelUrl }: ViewportSceneProps) {
         shadow-mapSize-height={1024}
       />
       <directionalLight intensity={0.55} position={[-10, 8, -6]} />
-
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
-        <planeGeometry args={[240, 240]} />
-        <meshStandardMaterial color="#b5c0c4" roughness={1} />
-      </mesh>
-
       <Grid
-        args={[120, 120]}
-        cellColor="#6c7f86"
+        args={[140, 140]}
+        cellColor="#8a989e"
         cellSize={0.75}
-        cellThickness={0.5}
-        fadeDistance={90}
-        fadeStrength={1.4}
+        cellThickness={0.22}
+        fadeDistance={110}
+        fadeStrength={1.2}
         infiniteGrid
-        position={[0, 0.02, 0]}
-        sectionColor="#40545d"
+        position={[0, 0, 0]}
+        sectionColor="#53666e"
         sectionSize={6}
-        sectionThickness={1.1}
+        sectionThickness={0.45}
       />
 
       {modelUrl ? (
         <Suspense fallback={null}>
-          <GeneratedGlb url={modelUrl} />
+          <GeneratedGlb
+            key={modelUrl}
+            renderManifest={renderManifest}
+            selectedNodeIds={selectedNodeIds}
+            url={modelUrl}
+          />
         </Suspense>
       ) : null}
     </>

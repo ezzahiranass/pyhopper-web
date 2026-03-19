@@ -15,7 +15,8 @@ from pyhopper.Components.Curve.Primitive.LineSDL import LineSDL
 from pyhopper.Components.Curve.Primitive.Polygon import Polygon
 from pyhopper.Components.Curve.Primitive.Rectangle import Rectangle
 from pyhopper.Components.Vector.Plane.ConstructPlane import ConstructPlane
-from pyhopper.Components.Vector.Vector.UnitZ import UnitX, UnitY
+from pyhopper.Components.Vector.Vector.UnitX import UnitX
+from pyhopper.Components.Vector.Vector.UnitY import UnitY
 from pyhopper.Core.Atoms import AtomicPoint, AtomicVector
 from pyhopper.Components.Sets.Tree.Merge import Merge
 from pyhopper.Core.DataTree import DataTree

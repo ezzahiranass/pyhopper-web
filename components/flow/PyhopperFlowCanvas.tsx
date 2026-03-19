@@ -8,7 +8,10 @@ import {
   Background,
   BackgroundVariant,
   ConnectionLineType,
+  MiniMap,
   ReactFlow,
+  reconnectEdge,
+  SelectionMode,
   type Connection,
   type Edge,
   type EdgeChange,
@@ -18,6 +21,14 @@ import {
 } from "@xyflow/react";
 
 import { ComponentBrowser } from "@/components/flow/ComponentBrowser";
+import { CompiledCodeView } from "@/components/flow/CompiledCodeView";
+import {
+  createStoredGraphSnapshot,
+  getInitialNodeValues,
+  persistGraphSnapshot,
+  useGraphEditor,
+} from "@/components/flow/GraphEditorContext";
+import { GraphExportButton } from "@/components/flow/GraphExportButton";
 import { ComponentNode } from "@/components/flow/ComponentNode";
 import { ComponentSearch } from "@/components/flow/ComponentSearch";
 import type { ComponentNodeData, PyhopperComponentDefinition } from "@/components/flow/types";
@@ -33,19 +44,46 @@ type FlowClipboard = {
   edges: Edge[];
 };
 
+type ConnectGesture = {
+  ctrlOrMeta: boolean;
+  shift: boolean;
+};
+
+type NodeContextMenuState = {
+  nodeIds: string[];
+  x: number;
+  y: number;
+};
+
 export function PyhopperFlowCanvas() {
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const clipboardRef = useRef<FlowClipboard | null>(null);
+  const connectGestureRef = useRef<ConnectGesture>({ ctrlOrMeta: false, shift: false });
   const pasteCountRef = useRef(0);
+  const restoredViewportRef = useRef(false);
   const [catalog, setCatalog] = useState<PyhopperComponentDefinition[]>([]);
-  const [nodes, setNodes] = useState<Node<ComponentNodeData>[]>([]);
-  const [edges, setEdges] = useState<Edge[]>([]);
+  const [isCodeView, setIsCodeView] = useState(false);
+  const [nodeContextMenu, setNodeContextMenu] = useState<NodeContextMenuState | null>(null);
   const [reactFlow, setReactFlow] = useState<ReactFlowInstance<Node<ComponentNodeData>, Edge> | null>(null);
   const [searchState, setSearchState] = useState<{ isOpen: boolean; x: number; y: number }>({
     isOpen: false,
     x: 80,
     y: 80,
   });
+  const {
+    edges,
+    graphId,
+    generatedPython,
+    hasStoredSnapshot,
+    isHydrated,
+    nodes,
+    requestRealtimeGeneration,
+    setEdges,
+    setNodePreviewEnabled,
+    setNodes,
+    setViewport,
+    viewport,
+  } = useGraphEditor();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -79,28 +117,118 @@ export function PyhopperFlowCanvas() {
 
   const nodeTypes = useMemo(() => ({ component: ComponentNode }), []);
   const edgeTypes = useMemo(() => ({ wire: WireEdge }), []);
+  const findNodeDefinition = useCallback(
+    (nodeId: string) => nodes.find((node) => node.id === nodeId)?.data.definition,
+    [nodes],
+  );
+
+  const isVariadicTargetHandle = useCallback(
+    (nodeId: string, handleId: string | null | undefined) => {
+      if (!handleId) {
+        return false;
+      }
+
+      const definition = findNodeDefinition(nodeId);
+      if (!definition?.variadic_inputs || !definition.inputs.length) {
+        return false;
+      }
+
+      return definition.inputs[definition.inputs.length - 1]?.name === handleId;
+    },
+    [findNodeDefinition],
+  );
 
   const onNodesChange = useCallback((changes: NodeChange<Node<ComponentNodeData>>[]) => {
     setNodes((current) => applyNodeChanges(changes, current));
-  }, []);
+  }, [setNodes]);
 
   const onEdgesChange = useCallback((changes: EdgeChange<Edge>[]) => {
     setEdges((current) => applyEdgeChanges(changes, current));
-  }, []);
+    if (changes.some((change) => change.type === "remove")) {
+      requestRealtimeGeneration();
+    }
+  }, [requestRealtimeGeneration, setEdges]);
 
   const onConnect = useCallback((connection: Connection) => {
-    setEdges((current) =>
-      addEdge(
-        {
-          ...connection,
-          animated: false,
-          className: "wire-edge",
-          type: "wire",
-        },
-        current,
+    const nextEdge = {
+      ...connection,
+      animated: false,
+      className: "wire-edge",
+      type: "wire" as const,
+    };
+
+    const { ctrlOrMeta, shift } = connectGestureRef.current;
+    let changed = false;
+
+    setEdges((current) => {
+      if (!connection.source || !connection.target) {
+        return current;
+      }
+
+      if (ctrlOrMeta && shift) {
+        const rewiredEdges = current.filter(
+          (edge) =>
+            !(
+              edge.target === connection.target &&
+              edge.targetHandle === (connection.targetHandle ?? null)
+            ),
+        );
+        const appendedEdges = addEdge(nextEdge, rewiredEdges);
+        changed = appendedEdges.length !== current.length || appendedEdges !== current;
+        return appendedEdges;
+      }
+
+      if (ctrlOrMeta && !shift) {
+        const filtered = current.filter(
+          (edge) =>
+            !(
+              edge.source === connection.source &&
+              edge.sourceHandle === (connection.sourceHandle ?? null) &&
+              edge.target === connection.target &&
+              edge.targetHandle === (connection.targetHandle ?? null)
+            ),
+        );
+        changed = filtered.length !== current.length;
+        return filtered;
+      }
+
+      let nextEdges = current;
+      const shouldReplaceIncoming = !shift && !isVariadicTargetHandle(connection.target, connection.targetHandle);
+
+      if (shouldReplaceIncoming) {
+        nextEdges = nextEdges.filter(
+          (edge) =>
+            !(
+              edge.target === connection.target &&
+              edge.targetHandle === (connection.targetHandle ?? null)
+            ),
+        );
+      }
+
+      const appendedEdges = addEdge(nextEdge, nextEdges);
+      changed = appendedEdges.length !== current.length || appendedEdges !== current;
+      return appendedEdges;
+    });
+
+    if (changed) {
+      requestRealtimeGeneration();
+    }
+  }, [isVariadicTargetHandle, requestRealtimeGeneration, setEdges]);
+
+  const onReconnect = useCallback((oldEdge: Edge, connection: Connection) => {
+    setEdges((current) => reconnectEdge(oldEdge, connection, current));
+    requestRealtimeGeneration();
+  }, [requestRealtimeGeneration, setEdges]);
+
+  const onNodesDelete = useCallback((deletedNodes: Node<ComponentNodeData>[]) => {
+    setEdges((currentEdges) =>
+      currentEdges.filter(
+        (edge) =>
+          !deletedNodes.some((node) => node.id === edge.source || node.id === edge.target),
       ),
     );
-  }, []);
+    requestRealtimeGeneration();
+  }, [requestRealtimeGeneration, setEdges]);
 
   const openSearchAt = useCallback((localX: number, localY: number) => {
     setSearchState({
@@ -128,6 +256,17 @@ export function PyhopperFlowCanvas() {
       }
 
       const modifierPressed = event.ctrlKey || event.metaKey;
+
+      if (modifierPressed && event.key.toLowerCase() === "a") {
+        if (!nodes.length && !edges.length) {
+          return;
+        }
+
+        event.preventDefault();
+        setNodes((current) => current.map((node) => ({ ...node, selected: true })));
+        setEdges((current) => current.map((edge) => ({ ...edge, selected: true })));
+        return;
+      }
 
       if (modifierPressed && event.key.toLowerCase() === "c") {
         const selectedNodes = nodes.filter((node) => node.selected);
@@ -199,6 +338,7 @@ export function PyhopperFlowCanvas() {
       }
 
       if (event.key === "Escape") {
+        setNodeContextMenu(null);
         setNodes((current) => current.map((node) => ({ ...node, selected: false })));
         setEdges((current) => current.map((edge) => ({ ...edge, selected: false })));
         closeSearch();
@@ -207,7 +347,7 @@ export function PyhopperFlowCanvas() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [closeSearch, edges, nodes]);
+  }, [closeSearch, edges, nodes, setEdges, setNodes]);
 
   const addComponentNodeAt = useCallback(
     (definition: PyhopperComponentDefinition, screenPosition: { x: number; y: number }) => {
@@ -223,16 +363,29 @@ export function PyhopperFlowCanvas() {
           id: `${definition.tab}-${definition.category}-${definition.component}-${crypto.randomUUID()}`,
           type: "component",
           position,
-          data: { definition },
+          data: {
+            definition,
+            previewEnabled: true,
+            values: getInitialNodeValues(definition),
+          },
         },
       ]);
+      requestRealtimeGeneration();
     },
-    [reactFlow],
+    [reactFlow, requestRealtimeGeneration, setNodes],
   );
 
   const addComponentNode = useCallback(
     (definition: PyhopperComponentDefinition) => {
-      addComponentNodeAt(definition, { x: searchState.x, y: searchState.y });
+      if (!canvasRef.current) {
+        return;
+      }
+
+      const bounds = canvasRef.current.getBoundingClientRect();
+      addComponentNodeAt(definition, {
+        x: bounds.left + searchState.x,
+        y: bounds.top + searchState.y,
+      });
       closeSearch();
     },
     [addComponentNodeAt, closeSearch, searchState.x, searchState.y],
@@ -255,10 +408,63 @@ export function PyhopperFlowCanvas() {
     [addComponentNodeAt, reactFlow],
   );
 
+  useEffect(() => {
+    if (!reactFlow || !isHydrated) {
+      return;
+    }
+
+    if (hasStoredSnapshot && !restoredViewportRef.current) {
+      restoredViewportRef.current = true;
+      reactFlow.setViewport(viewport, { duration: 0 });
+    }
+  }, [hasStoredSnapshot, isHydrated, reactFlow, viewport]);
+
+  useEffect(() => {
+    if (!reactFlow || !isHydrated) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      const snapshot = reactFlow.toObject();
+      persistGraphSnapshot(
+        createStoredGraphSnapshot(graphId, {
+          nodes: snapshot.nodes as Node<ComponentNodeData>[],
+          edges: snapshot.edges,
+          viewport: snapshot.viewport,
+        }),
+      );
+    }, 350);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [edges, graphId, isHydrated, nodes, reactFlow, viewport]);
+
+  useEffect(() => {
+    const handleNodeContextMenu = (event: Event) => {
+      const customEvent = event as CustomEvent<{ nodeIds: string[]; clientX: number; clientY: number }>;
+      const bounds = canvasRef.current?.getBoundingClientRect();
+      if (!bounds) {
+        return;
+      }
+
+      setNodeContextMenu({
+        nodeIds: customEvent.detail.nodeIds,
+        x: customEvent.detail.clientX - bounds.left,
+        y: customEvent.detail.clientY - bounds.top,
+      });
+    };
+
+    window.addEventListener("pyhopper-node-contextmenu", handleNodeContextMenu as EventListener);
+    return () => window.removeEventListener("pyhopper-node-contextmenu", handleNodeContextMenu as EventListener);
+  }, []);
+
   return (
     <div
       className="flow-canvas"
       ref={canvasRef}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        setNodeContextMenu(null);
+      }}
       onDoubleClick={(event) => {
         if (event.button !== 0) {
           return;
@@ -273,50 +479,135 @@ export function PyhopperFlowCanvas() {
         );
       }}
     >
-      <ComponentBrowser components={catalog} onSelect={addComponentFromBrowser} />
-      <ComponentSearch
-        key={`${searchState.isOpen}-${searchState.x}-${searchState.y}`}
-        components={catalog}
-        isOpen={searchState.isOpen}
-        onClose={closeSearch}
-        onSelect={addComponentNode}
-        x={searchState.x}
-        y={searchState.y}
+      {!isCodeView ? <ComponentBrowser components={catalog} onSelect={addComponentFromBrowser} /> : null}
+      <GraphExportButton
+        isCodeView={isCodeView}
+        onToggleCodeView={() => setIsCodeView((current) => !current)}
       />
-      <ReactFlow
-        connectionLineType={ConnectionLineType.Bezier}
-        defaultEdgeOptions={{ type: "wire" }}
-        deleteKeyCode={["Backspace", "Delete"]}
-        elementsSelectable
-        multiSelectionKeyCode="Shift"
-        panOnDrag={[1]}
-        selectionOnDrag
-        selectNodesOnDrag={false}
-        zoomOnDoubleClick={false}
-        nodes={nodes}
-        edges={edges}
-        edgeTypes={edgeTypes}
-        fitView
-        nodeTypes={nodeTypes}
-        onConnect={onConnect}
-        onEdgesChange={onEdgesChange}
-        onInit={setReactFlow}
-        onNodesChange={onNodesChange}
-        onPaneClick={() => {
-          if (searchState.isOpen) {
-            closeSearch();
-          }
-        }}
-        proOptions={{ hideAttribution: true }}
-      >
-        <Background
-          color="#6b7378"
-          gap={20}
-          lineWidth={1}
-          size={0.8}
-          variant={BackgroundVariant.Dots}
-        />
-      </ReactFlow>
+      {!isCodeView ? (
+        <>
+          <ComponentSearch
+            key={`${searchState.isOpen}-${searchState.x}-${searchState.y}`}
+            components={catalog}
+            isOpen={searchState.isOpen}
+            onClose={closeSearch}
+            onSelect={addComponentNode}
+            x={searchState.x}
+            y={searchState.y}
+          />
+          <ReactFlow
+            connectionLineType={ConnectionLineType.Bezier}
+            defaultEdgeOptions={{ type: "wire" }}
+            deleteKeyCode={["Backspace", "Delete"]}
+            elementsSelectable
+            multiSelectionKeyCode="Shift"
+            panOnDrag={[2]}
+            selectionMode={SelectionMode.Partial}
+            selectionOnDrag
+            selectNodesOnDrag={false}
+            zoomOnDoubleClick={false}
+            fitView={!hasStoredSnapshot}
+            nodes={nodes}
+            edges={edges}
+            edgeTypes={edgeTypes}
+            nodeTypes={nodeTypes}
+            onConnect={onConnect}
+            onConnectEnd={() => {
+              connectGestureRef.current = { ctrlOrMeta: false, shift: false };
+            }}
+            onConnectStart={(event) => {
+              connectGestureRef.current = {
+                ctrlOrMeta: event.ctrlKey || event.metaKey,
+                shift: event.shiftKey,
+              };
+            }}
+            onEdgesChange={onEdgesChange}
+            onReconnect={onReconnect}
+            onInit={(instance) => {
+              setReactFlow(instance);
+              setViewport(instance.getViewport());
+            }}
+            onMoveEnd={(_, nextViewport) => {
+              if (nextViewport) {
+                setViewport(nextViewport);
+              } else if (reactFlow) {
+                setViewport(reactFlow.getViewport());
+              }
+            }}
+            onNodeDragStart={(_, draggedNode) => {
+              setNodeContextMenu(null);
+              setNodes((current) =>
+                current.map((node) => ({
+                  ...node,
+                  selected: node.id === draggedNode.id,
+                })),
+              );
+              setEdges((current) => current.map((edge) => ({ ...edge, selected: false })));
+            }}
+            onNodesChange={onNodesChange}
+            onNodesDelete={onNodesDelete}
+            onPaneClick={() => {
+              setNodeContextMenu(null);
+              if (searchState.isOpen) {
+                closeSearch();
+              }
+            }}
+            edgesReconnectable
+            proOptions={{ hideAttribution: true }}
+          >
+            <MiniMap
+              className="flow-minimap"
+              maskColor="rgba(216, 224, 228, 0.72)"
+              nodeBorderRadius={2}
+              nodeColor="#8c9aa0"
+              nodeStrokeColor="#30464f"
+              pannable
+              position="bottom-left"
+              zoomable
+            />
+            <Background
+              color="#6b7378"
+              gap={20}
+              lineWidth={1}
+              size={0.8}
+              variant={BackgroundVariant.Dots}
+            />
+          </ReactFlow>
+          {nodeContextMenu ? (
+            <div
+              className="flow-node-menu"
+              style={{ left: nodeContextMenu.x, top: nodeContextMenu.y }}
+            >
+              <button
+                className="flow-node-menu__item"
+                onClick={() => {
+                  const targetNodes = nodes.filter((entry) => nodeContextMenu.nodeIds.includes(entry.id));
+                  if (!targetNodes.length) {
+                    setNodeContextMenu(null);
+                    return;
+                  }
+
+                  const nextPreviewEnabled = !targetNodes.every((entry) => entry.data.previewEnabled);
+                  targetNodes.forEach((node) => {
+                    setNodePreviewEnabled(node.id, nextPreviewEnabled);
+                  });
+                  setNodeContextMenu(null);
+                  requestRealtimeGeneration();
+                }}
+                type="button"
+              >
+                Preview {nodes
+                  .filter((entry) => nodeContextMenu.nodeIds.includes(entry.id))
+                  .every((entry) => entry.data.previewEnabled)
+                  ? "Off"
+                  : "On"}
+              </button>
+            </div>
+          ) : null}
+        </>
+      ) : (
+        <CompiledCodeView code={generatedPython} />
+      )}
     </div>
   );
 }
