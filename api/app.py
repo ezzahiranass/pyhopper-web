@@ -87,6 +87,7 @@ def export_graph():
             "path": str(output_path),
             "size": output_path.stat().st_size,
             "glb_url": f"http://127.0.0.1:5000/generated/{output_path.name}?v={output_path.stat().st_mtime_ns}",
+            "node_previews": payload["node_previews"],
             "python_source": compiled_graph.source,
             "render_manifest": {
                 "graphId": compiled_graph.graph_id,

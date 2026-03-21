@@ -130,12 +130,14 @@ function sanitizeNodeValues(
 
 function sanitizeStoredNode(node: Node<ComponentNodeData>): Node<ComponentNodeData> {
   return {
+    ...node,
     id: node.id,
     type: node.type ?? "component",
     position: node.position,
     data: {
       definition: node.data.definition,
       previewEnabled: typeof node.data.previewEnabled === "boolean" ? node.data.previewEnabled : true,
+      previews: {},
       values: sanitizeNodeValues(node.data.definition, node.data.values),
     },
     selected: false,
@@ -535,6 +537,23 @@ export function GraphEditorProvider({ children }: { children: ReactNode }) {
       console.log("Graph export response:", payload);
       console.log("Setting modelUrl:", payload.glb_url);
       setModelUrl(payload.glb_url);
+      setNodes((currentNodes) =>
+        currentNodes.map((node) => ({
+          ...node,
+          data: {
+            ...node.data,
+            previews:
+              "node_previews" in payload &&
+              payload.node_previews &&
+              typeof payload.node_previews === "object" &&
+              payload.node_previews[node.id]
+                ? {
+                    [node.data.definition.outputs[0]?.name ?? "value"]: payload.node_previews[node.id],
+                  }
+                : {},
+          },
+        })),
+      );
       setGeneratedPython("python_source" in payload ? payload.python_source : null);
       setRenderManifest("render_manifest" in payload ? payload.render_manifest : null);
       persistGraphExport({

@@ -1,43 +1,24 @@
 "use client";
 
-import { useMemo } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 
 import { useGraphEditor } from "@/components/flow/GraphEditorContext";
+import { NumberSliderNode } from "@/components/flow/SpecialNodes/NumberSliderNode";
+import { PanelNode } from "@/components/flow/SpecialNodes/PanelNode";
 import type { ComponentNodeData } from "@/components/flow/types";
-import { Slider } from "@/components/ui/slider";
 
 export function ComponentNode({ data, id, selected }: NodeProps) {
   const typedData = data as ComponentNodeData;
   const { definition } = typedData;
-  const { nodes, requestRealtimeGeneration, setEdges, setNodes, setNodeValue } = useGraphEditor();
+  const { nodes, setEdges, setNodes } = useGraphEditor();
   const inputLabel = (name: string, index: number) =>
     definition.variadic_inputs && index === definition.inputs.length - 1 ? `${name}...` : name;
-  const sliderConfig = useMemo(() => {
-    const config = definition.frontend_config ?? {};
-    const min = typeof config.min === "number" ? config.min : 0;
-    const max = typeof config.max === "number" ? config.max : 1;
-    const step = typeof config.step === "number" ? config.step : 0.01;
-    const decimals = typeof config.decimals === "number" ? config.decimals : 2;
-    const fallbackValue = min <= max ? min : max;
-    const value = typeof config.value === "number" ? config.value : fallbackValue;
 
-    return { min, max, step, decimals, value };
-  }, [definition.frontend_config]);
-  const sliderValueKey = definition.outputs[0]?.name ?? "value";
-  const sliderValue =
-    typeof typedData.values[sliderValueKey] === "number" ? typedData.values[sliderValueKey] : sliderConfig.value;
-  const sliderSpan = Math.max(sliderConfig.max - sliderConfig.min, Number.EPSILON);
-  const sliderRatio = (sliderValue - sliderConfig.min) / sliderSpan;
-  const sliderLabelSide = sliderRatio > 0.5 ? "left" : "right";
   const handleContextMenu = (event: React.MouseEvent<HTMLElement>) => {
     event.preventDefault();
     event.stopPropagation();
     const selectedNodeIds = nodes.filter((entry) => entry.selected).map((entry) => entry.id);
-    const targetNodeIds =
-      selected && selectedNodeIds.length > 1
-        ? selectedNodeIds
-        : [id];
+    const targetNodeIds = selected && selectedNodeIds.length > 1 ? selectedNodeIds : [id];
 
     setNodes((current) =>
       current.map((entry) => ({
@@ -58,55 +39,11 @@ export function ComponentNode({ data, id, selected }: NodeProps) {
   };
 
   if (definition.frontend_preset === "number-slider") {
-    return (
-      <article
-        className={`component-node component-node--number-slider${typedData.previewEnabled ? "" : " component-node--preview-off"}`}
-        onContextMenu={handleContextMenu}
-      >
-        <div className="component-node__body component-node__body--preset">
-          <div className="component-node__center component-node__center--slider">
-            <div className="component-node__title-wrap">
-              <h3 className="component-node__title component-node__title--horizontal">{definition.component}</h3>
-            </div>
+    return <NumberSliderNode data={typedData} id={id} onContextMenu={handleContextMenu} />;
+  }
 
-            <div className="component-node__slider">
-              <span className="component-node__slider-value">
-                {sliderValue.toFixed(sliderConfig.decimals)}
-              </span>
-              <Slider
-                className="component-node__slider-input"
-                labelSide={sliderLabelSide}
-                max={sliderConfig.max}
-                min={sliderConfig.min}
-                onValueChange={(values) => setNodeValue(id, sliderValueKey, values[0] ?? sliderConfig.min)}
-                onValueCommit={(values) => {
-                  setNodeValue(id, sliderValueKey, values[0] ?? sliderConfig.min);
-                  requestRealtimeGeneration();
-                }}
-                step={sliderConfig.step}
-                tickCount={11}
-                value={[sliderValue]}
-                valueLabel={sliderValue.toFixed(sliderConfig.decimals)}
-              />
-            </div>
-          </div>
-
-          <div className="component-node__ports component-node__ports--right">
-            {definition.outputs.map((output, index) => (
-              <div className="component-node__port-row component-node__port-row--output" key={`output-${output.name}`}>
-                <Handle
-                  className="component-node__handle component-node__handle--source"
-                  id={output.name}
-                  position={Position.Right}
-                  style={{ top: 18 + index * 18 }}
-                  type="source"
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      </article>
-    );
+  if (definition.frontend_preset === "panel") {
+    return <PanelNode data={typedData} id={id} onContextMenu={handleContextMenu} />;
   }
 
   return (

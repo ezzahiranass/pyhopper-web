@@ -363,9 +363,17 @@ export function PyhopperFlowCanvas() {
           id: `${definition.tab}-${definition.category}-${definition.component}-${crypto.randomUUID()}`,
           type: "component",
           position,
+          style:
+            definition.frontend_preset === "panel"
+              ? {
+                  width: 220,
+                  height: 180,
+                }
+              : undefined,
           data: {
             definition,
             previewEnabled: true,
+            previews: {},
             values: getInitialNodeValues(definition),
           },
         },

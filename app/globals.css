@@ -774,6 +774,13 @@ textarea {
   grid-template-columns: auto 1fr;
 }
 
+.component-node__body--panel {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+}
+
 .component-node__center {
   display: flex;
   align-items: center;
@@ -878,6 +885,221 @@ textarea {
 
 .component-node__slider-input {
   width: 100%;
+}
+
+.component-node--panel {
+  width: 100%;
+  height: 100%;
+  min-width: 180px;
+  border-color: #726e30;
+  border-radius: 4px;
+  background: #fff56a;
+  box-shadow: 0 4px 10px rgba(93, 88, 31, 0.16);
+}
+
+.component-node--panel .react-flow__handle::after {
+  border-color: rgba(255, 255, 255, 0.9);
+  background: #7b7632;
+}
+
+.component-node__panel-shell {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-width: 180px;
+  min-height: 120px;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.component-node__panel-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  border-bottom: 1px solid rgba(104, 99, 34, 0.58);
+  background: #cbc655;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42);
+}
+
+.component-node__panel-title {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1;
+  text-align: center;
+  color: #202010;
+}
+
+.component-node__panel-content {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  background: #fff56a;
+  scrollbar-width: none;
+  scrollbar-color: rgba(126, 119, 45, 0.82) rgba(233, 226, 92, 0.9);
+  box-sizing: border-box;
+}
+
+.component-node__panel-content::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.component-node__panel-shell:hover .component-node__panel-content {
+  overflow: auto;
+  scrollbar-width: thin;
+}
+
+.component-node__panel-shell:hover .component-node__panel-content::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.component-node__panel-shell:hover .component-node__panel-content::-webkit-scrollbar-track {
+  background: rgba(233, 226, 92, 0.92);
+}
+
+.component-node__panel-shell:hover .component-node__panel-content::-webkit-scrollbar-thumb {
+  border: 1px solid rgba(105, 99, 33, 0.28);
+  border-radius: 999px;
+  background: rgba(126, 119, 45, 0.78);
+}
+
+.component-node__panel-shell:hover .component-node__panel-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(106, 100, 36, 0.88);
+}
+
+.component-node__panel-branch {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid rgba(114, 110, 48, 0.32);
+}
+
+.component-node__panel-branch:last-child {
+  border-bottom: 0;
+}
+
+.component-node__panel-path {
+  padding: 4px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.28);
+  border-bottom: 1px solid rgba(114, 110, 48, 0.28);
+  background: #d5cf58;
+  font-size: 0.68rem;
+  font-weight: 400;
+  text-align: right;
+  color: #26230d;
+}
+
+.component-node__panel-path::before {
+  content: "";
+}
+
+.component-node__panel-row,
+.component-node__panel-empty-row,
+.component-node__panel-empty {
+  font-family: "Consolas", "Courier New", monospace;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  color: #2c280d;
+}
+
+.component-node__panel-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 0;
+  align-items: center;
+  min-height: 20px;
+  padding: 0;
+  border-bottom: 1px solid rgba(114, 110, 48, 0.14);
+}
+
+.component-node__panel-row:nth-child(even) {
+  background: rgba(255, 249, 108, 0.96);
+}
+
+.component-node__panel-row:nth-child(odd) {
+  background: rgba(246, 238, 88, 0.96);
+}
+
+.component-node__panel-index {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 20px;
+  padding: 0 6px 0 0;
+  color: rgba(52, 47, 15, 0.78);
+}
+
+.component-node__panel-value {
+  min-height: 20px;
+  padding: 0 0 0 6px;
+  border-left: 1px solid rgba(114, 110, 48, 0.32);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.component-node__panel-empty-row {
+  min-height: 20px;
+  padding: 0;
+  border-bottom: 1px solid rgba(114, 110, 48, 0.14);
+  background: rgba(255, 249, 108, 0.96);
+}
+
+.component-node__panel-empty-row,
+.component-node__panel-empty {
+  color: rgba(52, 47, 15, 0.68);
+}
+
+.component-node__panel-empty {
+  min-height: 64px;
+  padding: 10px 0;
+  background: rgba(255, 249, 108, 0.96);
+}
+
+.component-node__panel-handle {
+  top: 50% !important;
+  width: 18px !important;
+  height: 18px !important;
+}
+
+.component-node__panel-handle--left {
+  left: -8px !important;
+}
+
+.component-node__panel-handle--right {
+  right: -8px !important;
+}
+
+.component-node__panel-resize-handle {
+  width: 10px !important;
+  height: 10px !important;
+  border: 1px solid rgba(105, 99, 33, 0.44);
+  border-radius: 999px;
+  background: #f5ef72;
+}
+
+.component-node__panel-resize-line {
+  border-color: rgba(105, 99, 33, 0.34) !important;
+}
+
+.component-node--panel .react-flow__resize-control {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.react-flow__node-component:hover .component-node--panel .react-flow__resize-control,
+.react-flow__node-component.selected .component-node--panel .react-flow__resize-control {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .slider {

@@ -27,9 +27,32 @@ export type PyhopperComponentDefinition = {
   outputs: PyhopperComponentPort[];
 };
 
+export type DataTreePreviewItem = {
+  index: number;
+  value: string;
+};
+
+export type DataTreePreviewBranch = {
+  path: string;
+  items: DataTreePreviewItem[];
+};
+
+export type NodePreviewValue =
+  | {
+      kind: "data-tree";
+      branch_count: number;
+      item_count: number;
+      branches: DataTreePreviewBranch[];
+    }
+  | {
+      kind: "value";
+      value: string;
+    };
+
 export type ComponentNodeData = {
   definition: PyhopperComponentDefinition;
   previewEnabled: boolean;
+  previews: Record<string, NodePreviewValue>;
   values: Record<string, unknown>;
 };
 
@@ -79,6 +102,7 @@ export type GraphExportResponse = {
   path: string;
   size: number;
   glb_url: string;
+  node_previews: Record<string, NodePreviewValue>;
   python_source: string;
   render_manifest: RenderManifest;
 };

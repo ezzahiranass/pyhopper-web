@@ -7,12 +7,14 @@ from pathlib import Path
 import re
 from typing import Any
 
-from pyhopper.Core.Component import Component, InputParam, OutputParam
+from pyhopper.Core.Component import Component, ComponentResult, InputParam, OutputParam
+from pyhopper.Core.DataTree import DataTree
 from pyhopper.Utils.Exporters import export_glb_with_manifest
 
 
 ENTRYPOINT_NAME = "build_graph_definition"
 PREVIEW_OUTPUTS_ENTRYPOINT = "build_graph_preview_outputs"
+NODE_OUTPUTS_ENTRYPOINT = "build_graph_node_outputs"
 MERGE_COMPONENT_KEY = "pyhopper.Components.Sets.Tree.Merge.Merge"
 
 
@@ -52,6 +54,47 @@ class CompiledGraph:
     source: str
     entrypoint: str = ENTRYPOINT_NAME
     preview_outputs_entrypoint: str = PREVIEW_OUTPUTS_ENTRYPOINT
+    node_outputs_entrypoint: str = NODE_OUTPUTS_ENTRYPOINT
+    preview_node_ids: tuple[str, ...] = ()
+
+
+def _truncate_preview_text(value: str, limit: int = 120) -> str:
+    if len(value) <= limit:
+        return value
+    return f"{value[: limit - 1]}…"
+
+
+def _serialize_preview_value(value: Any) -> dict[str, Any]:
+    if isinstance(value, ComponentResult):
+        primary_output_name = value.output_names[0] if value.output_names else "result"
+        return _serialize_preview_value(value.output(primary_output_name))
+
+    if isinstance(value, DataTree):
+        branches: list[dict[str, Any]] = []
+        item_count = 0
+
+        for path, branch in value.branches():
+            serialized_items = [
+                {
+                    "index": index,
+                    "value": _truncate_preview_text(repr(item)),
+                }
+                for index, item in enumerate(branch)
+            ]
+            item_count += len(serialized_items)
+            branches.append({"path": str(path), "items": serialized_items})
+
+        return {
+            "kind": "data-tree",
+            "branch_count": len(branches),
+            "item_count": item_count,
+            "branches": branches,
+        }
+
+    return {
+        "kind": "value",
+        "value": _truncate_preview_text(repr(value)),
+    }
 
 
 def _error(path: str, message: str, code: str = "invalid_graph") -> dict[str, str]:
@@ -472,8 +515,12 @@ def compile_graph_document(document: Any) -> CompiledGraph:
     print("compile_graph_document: preview nodes", preview_node_ids)
 
     import_lines = [f"from {module_name} import {class_name}" for module_name, class_name in sorted(imports)]
-    preview_output_lines = [
+    node_output_lines = [
         f"        {node_id!r}: {variable_names[node_id]},"
+        for node_id in ordered_node_ids
+    ]
+    preview_output_lines = [
+        f"        {node_id!r}: node_outputs[{node_id!r}],"
         for node_id in preview_node_ids
     ]
     source_lines = [
@@ -481,8 +528,14 @@ def compile_graph_document(document: Any) -> CompiledGraph:
         "",
         *import_lines,
         "",
-        f"def {PREVIEW_OUTPUTS_ENTRYPOINT}():",
+        f"def {NODE_OUTPUTS_ENTRYPOINT}():",
         *[f"    {line}" for line in lines],
+        "    return {",
+        *node_output_lines,
+        "    }",
+        "",
+        f"def {PREVIEW_OUTPUTS_ENTRYPOINT}():",
+        f"    node_outputs = {NODE_OUTPUTS_ENTRYPOINT}()",
         "    return {",
         *preview_output_lines,
         "    }",
@@ -499,6 +552,7 @@ def compile_graph_document(document: Any) -> CompiledGraph:
     return CompiledGraph(
         graph_id=graph_id,
         source="\n".join(source_lines),
+        preview_node_ids=tuple(preview_node_ids),
     )
 
 
@@ -509,8 +563,16 @@ def execute_compiled_graph(
     print("execute_compiled_graph: executing generated python")
     namespace: dict[str, Any] = {}
     exec(compiled_graph.source, namespace, namespace)
-    preview_outputs = namespace[compiled_graph.preview_outputs_entrypoint]()
-    if not isinstance(preview_outputs, dict) or not preview_outputs:
+    node_outputs = namespace[compiled_graph.node_outputs_entrypoint]()
+    if not isinstance(node_outputs, dict) or not node_outputs:
+        raise RuntimeError("Compiled graph did not produce any node outputs")
+
+    preview_outputs = {
+        node_id: node_outputs[node_id]
+        for node_id in compiled_graph.preview_node_ids
+        if node_id in node_outputs
+    }
+    if not preview_outputs:
         raise RuntimeError("Compiled graph did not produce any preview outputs")
     print("execute_compiled_graph: preview outputs", list(preview_outputs.keys()))
 
@@ -524,5 +586,9 @@ def execute_compiled_graph(
     return {
         "compiled_graph": compiled_graph,
         "output_path": output_path,
+        "node_previews": {
+            node_id: _serialize_preview_value(value)
+            for node_id, value in node_outputs.items()
+        },
         "render_manifest": render_manifest,
     }

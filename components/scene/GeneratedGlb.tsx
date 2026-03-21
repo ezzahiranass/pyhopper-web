@@ -8,7 +8,6 @@ import {
   Line,
   LineBasicMaterial,
   LineSegments,
-  Material,
   Mesh,
   MeshStandardMaterial,
   Points,
@@ -80,6 +79,25 @@ export function GeneratedGlb({ renderManifest, selectedNodeIds, url }: Generated
     }),
     [],
   );
+  const meshMaterials = useMemo(
+    () => ({
+      defaultMaterial: new MeshStandardMaterial({
+        color: "#d63d32",
+        transparent: true,
+        opacity: 0.35,
+        depthWrite: false,
+        side: 2, // DoubleSide
+      }),
+      selectedMaterial: new MeshStandardMaterial({
+        color: "#2ca86c",
+        transparent: true,
+        opacity: 0.35,
+        depthWrite: false,
+        side: 2, // DoubleSide
+      }),
+    }),
+    [],
+  );
   const selectedObjectNames = useMemo(() => {
     if (!renderManifest || !selectedNodeIds.length) {
       return new Set<string>();
@@ -102,19 +120,12 @@ export function GeneratedGlb({ renderManifest, selectedNodeIds, url }: Generated
       } else if (object instanceof Line || object instanceof LineSegments) {
         object.material = (isSelected ? lineMaterials.selectedMaterial : lineMaterials.defaultMaterial).clone();
       } else if (object instanceof Mesh) {
-        const baseMaterial = Array.isArray(object.material) ? object.material[0] : object.material;
-        if (baseMaterial instanceof Material && "color" in baseMaterial) {
-          const nextMaterial = baseMaterial.clone();
-          if (nextMaterial instanceof MeshStandardMaterial) {
-            nextMaterial.color.set(isSelected ? "#2ca86c" : "#c9d1d4");
-          }
-          object.material = nextMaterial;
-        }
+        object.material = (isSelected ? meshMaterials.selectedMaterial : meshMaterials.defaultMaterial).clone();
       }
     });
 
     return clone;
-  }, [lineMaterials, pointMaterial, scene, selectedObjectNames]);
+  }, [lineMaterials, meshMaterials, pointMaterial, scene, selectedObjectNames]);
 
   useEffect(() => {
     const bounds = new Box3().setFromObject(sceneClone);
@@ -134,12 +145,14 @@ export function GeneratedGlb({ renderManifest, selectedNodeIds, url }: Generated
     return () => {
       lineMaterials.defaultMaterial.dispose();
       lineMaterials.selectedMaterial.dispose();
+      meshMaterials.defaultMaterial.dispose();
+      meshMaterials.selectedMaterial.dispose();
       pointMaterial.defaultMaterial.dispose();
       pointMaterial.defaultMaterial.map?.dispose();
       pointMaterial.selectedMaterial.dispose();
       pointMaterial.selectedMaterial.map?.dispose();
     };
-  }, [lineMaterials, pointMaterial]);
+  }, [lineMaterials, meshMaterials, pointMaterial]);
 
   return <primitive object={sceneClone} />;
 }
