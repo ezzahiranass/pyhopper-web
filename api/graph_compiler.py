@@ -17,6 +17,15 @@ PREVIEW_OUTPUTS_ENTRYPOINT = "build_graph_preview_outputs"
 NODE_OUTPUTS_ENTRYPOINT = "build_graph_node_outputs"
 MERGE_COMPONENT_KEY = "pyhopper.Components.Sets.Tree.Merge.Merge"
 
+PORT_OP_METHODS: dict[str, str] = {
+    "Graft": "graft",
+    "Simplify": "simplify",
+    "Flatten": "flatten",
+    "Reverse": "reverse",
+    "Reparametrize": "reparametrize",
+}
+VALID_PORT_OPERATIONS = frozenset(PORT_OP_METHODS.keys())
+
 
 class GraphCompilerValidationError(Exception):
     def __init__(self, errors: list[dict[str, str]]) -> None:
@@ -29,7 +38,7 @@ class GraphCompilerValidationError(Exception):
 class ResolvedNode:
     node_id: str
     component_key: str
-    component_cls: type[Component]
+    component_cls: type[Component] | None
     inputs: list[InputParam]
     outputs: list[OutputParam]
     preview_enabled: bool
@@ -37,6 +46,9 @@ class ResolvedNode:
     variadic_inputs: bool
     frontend_preset: str | None
     frontend_config: dict[str, Any] | None
+    port_operations: dict[str, str]
+    object_atom: dict[str, Any] | None = None
+    object_transform: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -176,8 +188,8 @@ def _validate_document(document: Any) -> tuple[str, dict[str, ResolvedNode], lis
         raise GraphCompilerValidationError([_error("", "Graph document must be a JSON object")])
 
     schema_version = document.get("schemaVersion")
-    if schema_version != 1:
-        errors.append(_error("schemaVersion", "Only schemaVersion 1 is supported"))
+    if schema_version != 2:
+        errors.append(_error("schemaVersion", "Only schemaVersion 2 is supported"))
 
     graph_id = document.get("graphId")
     if not isinstance(graph_id, str) or not graph_id:
@@ -201,6 +213,15 @@ def _validate_document(document: Any) -> tuple[str, dict[str, ResolvedNode], lis
         errors.append(_error("edges", "edges must be an array"))
         raw_edges = []
 
+    raw_scene = document.get("scene")
+    scene_objects: dict[str, Any] = {}
+    if not isinstance(raw_scene, dict) or raw_scene.get("schemaVersion") not in {2, 3}:
+        errors.append(_error("scene", "scene must be a schemaVersion 2 or 3 scene document"))
+    elif not isinstance(raw_scene.get("objects"), dict):
+        errors.append(_error("scene.objects", "scene.objects must be an object map"))
+    else:
+        scene_objects = raw_scene["objects"]
+
     resolved_nodes: dict[str, ResolvedNode] = {}
     seen_node_ids: set[str] = set()
 
@@ -219,13 +240,10 @@ def _validate_document(document: Any) -> tuple[str, dict[str, ResolvedNode], lis
             continue
         seen_node_ids.add(node_id)
 
-        component_key = raw_node.get("componentKey")
-        if not isinstance(component_key, str) or not component_key:
-            errors.append(_error(f"{path}.componentKey", "componentKey must be a non-empty string"))
+        node_kind = raw_node.get("kind")
+        if node_kind not in {"component", "object-reference"}:
+            errors.append(_error(f"{path}.kind", "Node kind must be 'component' or 'object-reference'"))
             continue
-
-        if raw_node.get("kind") != "component":
-            errors.append(_error(f"{path}.kind", "Node kind must be 'component'"))
 
         position = raw_node.get("position")
         if not isinstance(position, dict):
@@ -245,6 +263,67 @@ def _validate_document(document: Any) -> tuple[str, dict[str, ResolvedNode], lis
             errors.append(_error(f"{path}.values", "values must be an object"))
             continue
         values = dict(raw_values)
+
+        raw_port_operations = raw_node.get("portOperations", {})
+        if not isinstance(raw_port_operations, dict):
+            errors.append(_error(f"{path}.portOperations", "portOperations must be an object"))
+            raw_port_operations = {}
+        port_operations: dict[str, str] = {}
+        for port_name, op in raw_port_operations.items():
+            if not isinstance(op, str) or op not in VALID_PORT_OPERATIONS:
+                errors.append(
+                    _error(f"{path}.portOperations.{port_name}", f"Invalid port operation '{op}'")
+                )
+                continue
+            port_operations[port_name] = op
+
+        if node_kind == "object-reference":
+            object_id = raw_node.get("objectId")
+            scene_object = scene_objects.get(object_id) if isinstance(object_id, str) else None
+            object_atom = scene_object.get("atom") if isinstance(scene_object, dict) else None
+            object_tree = scene_object.get("tree") if isinstance(scene_object, dict) else None
+            if not isinstance(object_atom, dict) and isinstance(object_tree, dict):
+                branches = object_tree.get("branches")
+                if isinstance(branches, list) and branches and isinstance(branches[0], dict):
+                    items = branches[0].get("items")
+                    if isinstance(items, list) and items and isinstance(items[0], dict):
+                        object_atom = items[0]
+            object_transform = scene_object.get("transform") if isinstance(scene_object, dict) else None
+            transform_matrix = object_transform.get("matrix") if isinstance(object_transform, dict) else None
+            if not isinstance(object_id, str) or not object_id:
+                errors.append(_error(f"{path}.objectId", "objectId must be a non-empty string"))
+                continue
+            if not isinstance(object_atom, dict) or not isinstance(object_atom.get("type"), str):
+                errors.append(_error(f"{path}.objectId", f"Scene object '{object_id}' does not exist or has no atom"))
+                continue
+            if (
+                not isinstance(transform_matrix, list)
+                or len(transform_matrix) != 16
+                or any(not isinstance(value, (int, float)) or isinstance(value, bool) for value in transform_matrix)
+            ):
+                errors.append(_error(f"{path}.objectId", f"Scene object '{object_id}' has no valid transform matrix"))
+                continue
+            resolved_nodes[node_id] = ResolvedNode(
+                node_id=node_id,
+                component_key="",
+                component_cls=None,
+                inputs=[],
+                outputs=[OutputParam("geometry")],
+                preview_enabled=preview_enabled,
+                values={},
+                variadic_inputs=False,
+                frontend_preset="object-reference",
+                frontend_config=None,
+                port_operations=port_operations,
+                object_atom=object_atom,
+                object_transform={"type": "Transform", "matrix": transform_matrix},
+            )
+            continue
+
+        component_key = raw_node.get("componentKey")
+        if not isinstance(component_key, str) or not component_key:
+            errors.append(_error(f"{path}.componentKey", "componentKey must be a non-empty string"))
+            continue
 
         try:
             component_cls = _resolve_component(component_key)
@@ -269,7 +348,7 @@ def _validate_document(document: Any) -> tuple[str, dict[str, ResolvedNode], lis
                 errors.append(
                     _error(
                         f"{path}.values.{key}",
-                        "Literal node values are only supported for slider-backed preset nodes in v1",
+                        "Literal node values are only supported for slider-backed preset nodes",
                     )
                 )
 
@@ -284,6 +363,7 @@ def _validate_document(document: Any) -> tuple[str, dict[str, ResolvedNode], lis
             variadic_inputs=bool(getattr(component_cls, "variadic_inputs", False)),
             frontend_preset=frontend_preset,
             frontend_config=frontend_config if isinstance(frontend_config, dict) else None,
+            port_operations=port_operations,
         )
 
     validated_edges: list[ValidatedEdge] = []
@@ -449,7 +529,8 @@ def compile_graph_document(document: Any) -> CompiledGraph:
 
     for index, node_id in enumerate(ordered_node_ids):
         node = nodes[node_id]
-        variable_name = f"node_{index:03d}_{_snake_case(node.component_cls.__name__)}"
+        node_name = node.component_cls.__name__ if node.component_cls is not None else "ObjectReference"
+        variable_name = f"node_{index:03d}_{_snake_case(node_name)}"
         variable_names[node_id] = variable_name
 
         if node.frontend_preset == "number-slider":
@@ -457,10 +538,19 @@ def compile_graph_document(document: Any) -> CompiledGraph:
             lines.append(f"{variable_name} = {_literal_expression(slider_value)}")
             continue
 
-        module_name, _, class_name = node.component_key.rpartition(".")
-        imports.add((module_name, class_name))
-
-        if node.variadic_inputs and node.inputs:
+        if node.frontend_preset == "object-reference":
+            imports.add(("pyhopper.Core.DataTree", "DataTree"))
+            imports.add(("pyhopper.Core.Atoms", "AtomicTransform"))
+            imports.add(("pyhopper.Core.Atoms", "atom_from_json"))
+            imports.add(("pyhopper.Utils.Transforms", "apply_transform"))
+            lines.append(
+                f"{variable_name} = DataTree.from_item(apply_transform("
+                f"AtomicTransform.from_json({node.object_transform!r}), "
+                f"atom_from_json({node.object_atom!r})))"
+            )
+        elif node.variadic_inputs and node.inputs:
+            module_name, _, class_name = node.component_key.rpartition(".")
+            imports.add((module_name, class_name))
             variadic_port = node.inputs[-1].name
             variadic_edges = sorted(
                 incoming_by_port.get((node.node_id, variadic_port), []),
@@ -469,33 +559,49 @@ def compile_graph_document(document: Any) -> CompiledGraph:
                     edge.edge_id,
                 ),
             )
-            arguments = [
-                _output_expression(
+            input_op = PORT_OP_METHODS.get(node.port_operations.get(f"input:{variadic_port}", ""))
+            arguments = []
+            for edge in variadic_edges:
+                expr = _output_expression(
                     variable_names[edge.source_node_id],
                     edge.source_port,
                     nodes[edge.source_node_id].outputs[0].name,
                 )
-                for edge in variadic_edges
-            ]
+                if input_op:
+                    expr = f"{expr}.{input_op}()"
+                arguments.append(expr)
             call_arguments = ", ".join(arguments)
             lines.append(f"{variable_name} = {class_name}({call_arguments})")
-            continue
+        else:
+            module_name, _, class_name = node.component_key.rpartition(".")
+            imports.add((module_name, class_name))
+            keyword_arguments: list[str] = []
+            for input_param in node.inputs:
+                connected_edges = incoming_by_port.get((node.node_id, input_param.name), [])
+                if connected_edges:
+                    edge = connected_edges[0]
+                    source_node = nodes[edge.source_node_id]
+                    expr = _output_expression(
+                        variable_names[edge.source_node_id],
+                        edge.source_port,
+                        source_node.outputs[0].name,
+                    )
+                    input_op = PORT_OP_METHODS.get(node.port_operations.get(f"input:{input_param.name}", ""))
+                    if input_op:
+                        expr = f"{expr}.{input_op}()"
+                    keyword_arguments.append(f"{input_param.name}={expr}")
+            joined_arguments = ", ".join(keyword_arguments)
+            lines.append(f"{variable_name} = {class_name}({joined_arguments})")
 
-        keyword_arguments: list[str] = []
-        for input_param in node.inputs:
-            connected_edges = incoming_by_port.get((node.node_id, input_param.name), [])
-            if connected_edges:
-                edge = connected_edges[0]
-                source_node = nodes[edge.source_node_id]
-                argument_expression = _output_expression(
-                    variable_names[edge.source_node_id],
-                    edge.source_port,
-                    source_node.outputs[0].name,
-                )
-                keyword_arguments.append(f"{input_param.name}={argument_expression}")
-
-        joined_arguments = ", ".join(keyword_arguments)
-        lines.append(f"{variable_name} = {class_name}({joined_arguments})")
+        # Apply output operations: var = var.op() for primary, var.port = var.port.op() for others
+        primary_name = node.outputs[0].name if node.outputs else ""
+        for output in node.outputs:
+            op_name = node.port_operations.get(f"output:{output.name}")
+            if not op_name:
+                continue
+            method = PORT_OP_METHODS[op_name]
+            base_expr = _output_expression(variable_name, output.name, primary_name)
+            lines.append(f"{variable_name} = {base_expr}.{method}()")
 
     preview_node_ids = [
         node_id

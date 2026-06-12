@@ -1,0 +1,326 @@
+.scene-shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.viewport-toolbar {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--panel-border);
+  background: var(--panel);
+  box-shadow: var(--shadow-soft);
+  color: var(--foreground);
+  backdrop-filter: blur(var(--blur-panel));
+  pointer-events: auto;
+}
+
+.viewport-toolbar[data-mode="edit"] {
+  border-bottom-color: var(--viewport-object-edit);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, var(--viewport-object-edit) 45%, transparent),
+    var(--shadow-soft);
+}
+
+.viewport-mode-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.viewport-mode-select__label,
+.viewport-toolbar__status {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.viewport-toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.viewport-toolbar__action {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 100ms ease, border-color 100ms ease, color 100ms ease;
+}
+
+.viewport-toolbar__action:hover:not(:disabled),
+.viewport-toolbar__action--active {
+  border-color: var(--theme-menu-border);
+  background: var(--surface-menu-hover);
+  color: var(--foreground);
+}
+
+.viewport-toolbar__action--dirty {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+}
+
+.viewport-toolbar__action:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.viewport-toolbar__action--dirty:disabled {
+  opacity: 1;
+}
+
+.viewport-toolbar__action svg {
+  width: 16px;
+  height: 16px;
+}
+
+.viewport-toolbar__action--with-label {
+  width: auto;
+  gap: 6px;
+  padding: 0 9px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.viewport-toolbar__action--with-label:disabled {
+  opacity: 0.72;
+}
+
+.viewport-mode-select__control {
+  min-width: 126px;
+}
+
+.viewport-box-selection {
+  position: fixed;
+  z-index: 34;
+  border: 1px solid var(--border-strong);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  pointer-events: none;
+}
+
+.scene-actions {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  z-index: 40;
+  pointer-events: auto;
+}
+
+.scene-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border: 1px solid var(--theme-menu-border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-action);
+  box-shadow: var(--shadow-soft);
+  color: var(--theme-menu-text);
+  backdrop-filter: blur(18px);
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    transform 120ms ease;
+}
+
+.scene-action-button:hover:not(:disabled) {
+  background: var(--surface-menu-hover);
+  border-color: var(--theme-accent-border);
+  transform: translateY(-1px);
+}
+
+.scene-action-button:disabled {
+  opacity: 0.6;
+}
+
+.scene-action-button svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+
+/* ── Viewport Sidebar ─────────────────────────────────────── */
+
+.viewport-sidebar {
+  position: absolute;
+  top: calc(50% + 22px);
+  left: 12px;
+  transform: translateY(-50%);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-card);
+  backdrop-filter: blur(var(--blur-panel));
+  box-shadow: var(--shadow-soft);
+  pointer-events: auto;
+}
+
+.viewport-sidebar__section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.viewport-sidebar__separator {
+  width: 22px;
+  height: 1px;
+  margin: 2px 0;
+  background: var(--border-subtle);
+  flex-shrink: 0;
+}
+
+/* ── Viewport Tool Button ─────────────────────────────────── */
+
+.viewport-tool-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--theme-menu-muted);
+  cursor: pointer;
+  transition:
+    background 100ms ease,
+    border-color 100ms ease,
+    color 100ms ease;
+}
+
+.viewport-tool-button:hover:not(:disabled) {
+  background: var(--surface-action-hover);
+  color: var(--foreground);
+}
+
+.viewport-tool-button--active {
+  background: var(--accent);
+  border-color: var(--border-strong);
+  color: var(--text-strong-on-accent);
+}
+
+.viewport-tool-button--active:hover {
+  background: var(--accent);
+  color: var(--text-strong-on-accent);
+}
+
+.viewport-tool-button svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+/* Cursor per active tool */
+.scene-shell[data-active-tool="point"],
+.scene-shell[data-active-tool="point"] canvas,
+.scene-shell[data-active-tool="polyline"],
+.scene-shell[data-active-tool="polyline"] canvas,
+.scene-shell[data-active-tool="curve"],
+.scene-shell[data-active-tool="curve"] canvas,
+.scene-shell[data-active-tool="control-curve"],
+.scene-shell[data-active-tool="control-curve"] canvas,
+.scene-shell[data-active-tool="circle"],
+.scene-shell[data-active-tool="circle"] canvas,
+.scene-shell[data-active-tool="arc"],
+.scene-shell[data-active-tool="arc"] canvas,
+.scene-shell[data-active-tool="ellipse"],
+.scene-shell[data-active-tool="ellipse"] canvas,
+.scene-shell[data-active-tool="rectangle"],
+.scene-shell[data-active-tool="rectangle"] canvas {
+  cursor: crosshair;
+}
+
+.viewport-tool-group {
+  position: relative;
+}
+
+.viewport-tool-group::after {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 0;
+  height: 0;
+  border-top: 3px solid transparent;
+  border-bottom: 3px solid transparent;
+  border-left: 3px solid currentColor;
+  color: var(--theme-menu-muted);
+  content: "";
+  pointer-events: none;
+  transform: rotate(45deg);
+}
+
+.viewport-tool-group__flyout {
+  position: absolute;
+  top: -6px;
+  left: 100%;
+  display: none;
+  padding-left: 7px;
+}
+
+.viewport-tool-group:hover .viewport-tool-group__flyout,
+.viewport-tool-group:focus-within .viewport-tool-group__flyout {
+  display: block;
+}
+
+.viewport-tool-group__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-card);
+  background: var(--panel);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(var(--blur-panel));
+}
+
+.scene-object-menu {
+  position: fixed;
+  z-index: 70;
+  min-width: 160px;
+  padding: 4px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  box-shadow: var(--shadow-soft);
+  pointer-events: auto;
+}
+
+.scene-object-menu__item {
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--foreground);
+  text-align: left;
+  cursor: pointer;
+}
+
+.scene-object-menu__item:hover {
+  background: var(--surface-action-hover);
+}

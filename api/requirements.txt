@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+celery
+redis
+python-dotenv
+agno
+openai-agents
+mcp
+pydantic
+-e ../..

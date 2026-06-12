@@ -1,4 +1,20 @@
+
+
+First-time Redis init:
+docker rm -f pyhopper-redis
+docker run --name pyhopper-redis -p 6379:6379 -d redis:7-alpine
+
+Later Redis restarts:
+docker start pyhopper-redis
+
+Backend boot:
 d:
 cd D:\Apps\pyhopper\pyhopper-web\api
 conda activate flask_env
-python app.py
+uvicorn app:app --reload --host 127.0.0.1 --port 8000
+
+Second terminal:
+d:
+cd D:\Apps\pyhopper\pyhopper-web\api
+conda activate flask_env
+celery -A celery_app.celery_app worker --loglevel=info --pool=solo

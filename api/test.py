@@ -35,14 +35,25 @@ def build_demo_geometry() -> DataTree:
     line_direction = AtomicVector(1.0, 0.75, 0.0)
     x_axis = UnitX()
     y_axis = UnitY()
-    circle_plane = ConstructPlane(origin_circle, x_axis, y_axis)
+    # INPUT SIMPLIFIED, GOOD, BUT ALSO WE LOSE ORIGIN_CIRCLE..
+    circle_plane = ConstructPlane(origin_circle.simplify(), x_axis, y_axis)
+    # OUTPUT GRAFTED, GOOD.
+    circle_plane.graft()
+
     rectangle_plane = ConstructPlane(origin_rectangle, x_axis, y_axis)
     polygon_plane = ConstructPlane(origin_polygon, x_axis, y_axis)
     circle = Circle(radius=2.25, plane=circle_plane)
+    # OUTPUT SIMPLIFIED, GOOD.
+    circle.simplify()
+
     rectangle = Rectangle(plane=rectangle_plane, x_size=3.5, y_size=2.2, radius=0.0)
     polygon = Polygon(plane=polygon_plane, radius=1.8, segments=6, fillet_radius=0.0)
-    line = LineSDL(start=line_start, direction=line_direction, length=6.0)
-
+    
+    # LINE START IS ONLY GRAFTED AS AN INPUT TO LINE, NOT FOREVER GRAFTED.
+    #  IN THIS EXAMPLE, IT IS GRAFTED FOREVER, WE SHOULD FIND A BETTER WAY.
+    line = LineSDL(start=line_start.graft(), direction=line_direction, length=6.0)
+    # NOW THE OUTPUT IS FLATTENED FOREVER, THAT's WHAT WE WANT.
+    line.flatten()
     return Merge(circle, rectangle, polygon, line)
 
 
