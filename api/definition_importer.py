@@ -33,7 +33,7 @@ panel = Panel(scene)
 """
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DECLARATIVE_DEFINITION_PATH = REPO_ROOT / "DECLARATIVE_DEFINITION.md"
+DECLARATIVE_DEFINITION_PATH = REPO_ROOT / "CONTRACTS" / "DECLARATIVE_DEFINITION.md"
 
 _CATALOG_RAW = list_components()
 
@@ -164,6 +164,32 @@ def _safe_numeric(value: ast.AST) -> float | None:
     return None
 
 
+def _inline_literal(expr: ast.AST, input_def: dict[str, Any]) -> tuple[bool, Any]:
+    """``(True, value)`` when *expr* is a constant the input can carry as an inline literal.
+
+    Inline constants in a definition (``Circle(2.0, plane)``) attach to the port
+    itself; only named bindings (``radius = 2.0``) become sliders, since a name
+    signals a knob the author wants to keep turning.
+    """
+    if not input_def.get("literal") or not isinstance(expr, ast.Constant):
+        return False, None
+    value = expr.value
+    port_type = input_def.get("type")
+    if port_type == "bool":
+        return (True, value) if isinstance(value, bool) else (False, None)
+    if port_type == "int":
+        if isinstance(value, bool):
+            return False, None
+        if isinstance(value, int) or (isinstance(value, float) and value.is_integer()):
+            return True, int(value)
+        return False, None
+    if port_type == "float":
+        return (True, float(value)) if isinstance(value, (int, float)) and not isinstance(value, bool) else (False, None)
+    if port_type == "str":
+        return (True, value) if isinstance(value, str) else (False, None)
+    return False, None
+
+
 def get_definition_contract_markdown() -> str:
     return DECLARATIVE_DEFINITION_PATH.read_text(encoding="utf-8")
 
@@ -226,6 +252,12 @@ def parse_definition_to_graph(project_id: str, source: str) -> tuple[dict[str, A
                 create_edge(slider_node_id, _primary_output_name(NUMBER_SLIDER_DEF), target.node_id, input_name)
                 return
             raise ValueError(f"Unknown reference '{expr.id}'")
+
+        input_def = next((entry for entry in target.definition.get("inputs", []) if entry.get("name") == input_name), {})
+        is_literal, inline_value = _inline_literal(expr, input_def)
+        if is_literal:
+            target.values[input_name] = inline_value
+            return
 
         literal_value = _safe_numeric(expr)
         if literal_value is not None:

@@ -29,6 +29,7 @@ import {
 } from "@/lib/graph/types";
 import { useProjects } from "@/components/providers/ProjectsProvider";
 import { sanitizeAgainstSchema, sanitizeAuthoredValues, settingsSchema } from "@/lib/graph/authoredValues";
+import { sanitizeInputLiterals } from "@/lib/graph/portLiterals";
 import { isSpecialComponent } from "@/lib/graph/specialComponents";
 import { createEmptySceneDocument, normalizeSceneDocument } from "@/lib/scene/scene";
 import type { SceneDocument } from "@/lib/scene/types";
@@ -105,6 +106,8 @@ type GraphEditorContextValue = {
   refreshNodeDefinitions: (catalog: PyhopperComponentDefinition[]) => void;
   setNodeSetting: (nodeId: string, settingKey: string, value: unknown) => void;
   setNodeValue: (nodeId: string, valueKey: string, value: unknown) => void;
+  /** Drop one authored value / inline literal from a node. */
+  clearNodeValue: (nodeId: string, valueKey: string) => void;
   setPortOperation: (nodeId: string, portKind: "input" | "output", portName: string, operation: PortOperation) => void;
   setRealtimeGenerationEnabled: (enabled: boolean) => void;
   setViewport: (viewport: GraphViewport) => void;
@@ -250,7 +253,8 @@ function sanitizeNodeValues(definition: PyhopperComponentDefinition, values: unk
   if (isSpecialComponent(definition, "numberSlider")) {
     return {}; // the slider's value lives in settings (legacy values[<output>] is folded in above)
   }
-  return sanitizeAuthoredValues(definition, values);
+  // inline literals on primitive inputs, refined by the declared authored values
+  return { ...sanitizeInputLiterals(definition, values), ...sanitizeAuthoredValues(definition, values) };
 }
 
 function sanitizeStoredNode(node: Node<ComponentNodeData>): Node<ComponentNodeData> {
@@ -661,6 +665,19 @@ export function GraphEditorProvider({ children, projectId }: { children: ReactNo
       nodeIds: selectedNodeIds,
     });
   }, [graphId, isHydrated, persistSelection, selectedNodeIds]);
+
+  const clearNodeValue = useCallback((nodeId: string, valueKey: string) => {
+    setNodes((currentNodes) =>
+      currentNodes.map((node) => {
+        if (node.id !== nodeId || !(valueKey in node.data.values)) {
+          return node;
+        }
+        const values = { ...node.data.values };
+        delete values[valueKey];
+        return { ...node, data: { ...node.data, values } };
+      }),
+    );
+  }, []);
 
   const setNodeValue = useCallback((nodeId: string, valueKey: string, value: unknown) => {
     setNodes((currentNodes) =>
@@ -1096,6 +1113,7 @@ export function GraphEditorProvider({ children, projectId }: { children: ReactNo
   const value = useMemo<GraphEditorContextValue>(
     () => ({
       addObjectReferenceNode,
+      clearNodeValue,
       deleteSceneObjects,
       edges,
       exportError,
@@ -1136,6 +1154,7 @@ export function GraphEditorProvider({ children, projectId }: { children: ReactNo
     }),
     [
       addObjectReferenceNode,
+      clearNodeValue,
       deleteSceneObjects,
       edges,
       exportError,

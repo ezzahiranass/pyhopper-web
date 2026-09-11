@@ -15,6 +15,10 @@ type GraphPortRowProps = {
   handleStyle?: CSSProperties;
   kind: "input" | "output";
   label?: string;
+  /** Inline literal shown as a pill after the label. */
+  literal?: string;
+  /** The literal is kept but a wire feeds the port, so the pill dims. */
+  literalMuted?: boolean;
   onContextMenu?: (event: MouseEvent<HTMLElement>) => void;
   title?: string;
 };
@@ -27,6 +31,8 @@ export function GraphPortRow({
   handleStyle,
   kind,
   label,
+  literal,
+  literalMuted = false,
   onContextMenu,
   title,
 }: GraphPortRowProps) {
@@ -52,6 +58,9 @@ export function GraphPortRow({
             <p className="component-node__port-name">
               <span className="component-node__port-label">{label}</span>
               {badge ? <PortOperationBadge value={badge} /> : null}
+              {literal !== undefined ? (
+                <span className={`component-node__port-literal${literalMuted ? " component-node__port-literal--muted" : ""}`}>{literal}</span>
+              ) : null}
             </p>
           ) : null}
         </>

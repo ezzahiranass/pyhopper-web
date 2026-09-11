@@ -43,6 +43,8 @@ export type PyhopperComponentPort = {
   accepts?: string[] | null;
   access?: string;
   default?: unknown;
+  /** Input accepts an inline literal (`values[<name>]`) when it has no wire. */
+  literal?: boolean;
   optional?: boolean;
 };
 
