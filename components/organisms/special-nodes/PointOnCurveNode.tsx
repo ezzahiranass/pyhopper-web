@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import { GraphPortRow } from "@/components/molecules/GraphPortRow";
 import { Slider } from "@/components/molecules/Slider";
 import { useGraphEditor } from "@/components/providers/GraphEditorProvider";
-import { portTooltip, type ComponentNodeData } from "@/lib/graph/types";
+import { componentDisplayName, portTooltip, type ComponentNodeData } from "@/lib/graph/types";
 
 type PointOnCurveNodeProps = {
   data: ComponentNodeData;
@@ -86,7 +86,7 @@ export function PointOnCurveNode({ data, id, onContextMenu, title }: PointOnCurv
 
         <div className="component-node__center component-node__center--slider">
           <div className="component-node__title-wrap">
-            <h3 className="component-node__title component-node__title--horizontal">{definition.component}</h3>
+            <h3 className="component-node__title component-node__title--horizontal">{componentDisplayName(definition)}</h3>
           </div>
 
           <div className="component-node__slider">

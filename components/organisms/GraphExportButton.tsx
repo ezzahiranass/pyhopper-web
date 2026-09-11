@@ -36,8 +36,10 @@ export function GraphExportButton({
     isExporting,
     isSaving,
     nodes,
+    nodeTitleMode,
     realtimeGenerationEnabled,
     setAutosaveEnabled,
+    setNodeTitleMode,
     setRealtimeGenerationEnabled,
   } = useGraphEditor();
   const disabled = isExporting || nodes.length === 0;
@@ -80,6 +82,10 @@ export function GraphExportButton({
               <label className="flow-export__setting">
                 <Switch checked={autosaveEnabled} onCheckedChange={setAutosaveEnabled} />
                 <span>Autosave to Firestore</span>
+              </label>
+              <label className="flow-export__setting">
+                <Switch checked={nodeTitleMode === "nickname"} onCheckedChange={(checked) => setNodeTitleMode(checked ? "nickname" : "display")} />
+                <span title="Show Grasshopper nicknames (Divide, LLX) on nodes instead of full names">Short node titles</span>
               </label>
               <label className="flow-export__setting">
                 <Switch checked={realtimeGenerationEnabled} onCheckedChange={setRealtimeGenerationEnabled} />

@@ -692,6 +692,10 @@
 	transform: rotate(180deg);
 	letter-spacing: 0.04em;
 	text-transform: uppercase;
+	max-height: 176px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .component-node__body {
@@ -782,6 +786,27 @@
 	display: flex;
 	align-items: center;
 	gap: 3px;
+	min-width: 0;
+}
+
+.component-node__port-label {
+	display: inline-block;
+	max-width: 96px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* Grasshopper's access hints: item = round handle, list = square, tree = square with a hollow core */
+.component-node__port-row[data-access="list"] .react-flow__handle::after,
+.component-node__port-row[data-access="tree"] .react-flow__handle::after {
+	border-radius: 2px;
+}
+
+.component-node__port-row[data-access="tree"] .react-flow__handle::after {
+	background: transparent;
+	border-width: 2px;
+	border-color: var(--theme-port-border);
 }
 
 .component-node__port-op {
@@ -1479,6 +1504,14 @@
 
 .component-search__name,
 .component-search__metadata,
+.component-search__footer {
+	padding: 6px 12px 8px;
+	border-top: 1px solid var(--border-subtle);
+	color: var(--muted);
+	font-size: 0.62rem;
+	font-variant-numeric: tabular-nums;
+}
+
 .component-search__empty {
 	margin: 0;
 }

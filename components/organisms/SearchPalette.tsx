@@ -12,6 +12,8 @@ type SearchPaletteItem = {
 type SearchPaletteProps = {
   activeIndex: number;
   emptyLabel: string;
+  /** Shown under the results, e.g. how many matches were left out. */
+  footer?: string;
   isOpen: boolean;
   items: SearchPaletteItem[];
   onActiveIndexChange: (index: number) => void;
@@ -27,6 +29,7 @@ type SearchPaletteProps = {
 export function SearchPalette({
   activeIndex,
   emptyLabel,
+  footer,
   isOpen,
   items,
   onActiveIndexChange,
@@ -103,6 +106,7 @@ export function SearchPalette({
           <div className="component-search__empty">{emptyLabel}</div>
         )}
       </div>
+      {footer ? <div className="component-search__footer">{footer}</div> : null}
     </div>
   );
 }

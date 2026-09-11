@@ -8,7 +8,7 @@ import { Select } from "@/components/atoms/Select";
 import { GraphPortRow } from "@/components/molecules/GraphPortRow";
 import { NodeForm, NodeFormRow } from "@/components/molecules/NodeForm";
 import { Slider } from "@/components/molecules/Slider";
-import { portTooltip, type ComponentNodeData } from "@/lib/graph/types";
+import { componentDisplayName, portTooltip, type ComponentNodeData } from "@/lib/graph/types";
 
 type NumberSliderNodeProps = {
   data: ComponentNodeData;
@@ -114,7 +114,7 @@ export function NumberSliderNode({ data, id, onContextMenu, title }: NumberSlide
               setFormOpen(true);
             }}
           >
-            <h3 className="component-node__title component-node__title--horizontal">{definition.component}</h3>
+            <h3 className="component-node__title component-node__title--horizontal">{componentDisplayName(definition)}</h3>
           </div>
 
           <div

@@ -28,6 +28,7 @@ import {
   OBJECT_REFERENCE_DEFINITION,
 } from "@/lib/graph/types";
 import { useProjects } from "@/components/providers/ProjectsProvider";
+import { isSpecialComponent } from "@/lib/graph/specialComponents";
 import { createEmptySceneDocument, normalizeSceneDocument } from "@/lib/scene/scene";
 import type { SceneDocument } from "@/lib/scene/types";
 
@@ -55,10 +56,13 @@ type StoredGraphExport = {
   renderManifest: RenderManifest | null;
 };
 
+export type NodeTitleMode = "display" | "nickname";
+
 type StoredGraphSettings = {
   schemaVersion: 2;
   autosaveEnabled: boolean;
   realtimeGenerationEnabled: boolean;
+  nodeTitleMode?: NodeTitleMode;
 };
 
 type StoredGraphSelection = {
@@ -81,6 +85,8 @@ type GraphEditorContextValue = {
   isSaving: boolean;
   modelUrl: string | null;
   nodes: Node<ComponentNodeData>[];
+  /** Node titles show Grasshopper's display name or its short nickname. */
+  nodeTitleMode: NodeTitleMode;
   realtimeGenerationEnabled: boolean;
   renderManifest: RenderManifest | null;
   scene: SceneDocument;
@@ -93,6 +99,7 @@ type GraphEditorContextValue = {
   setScene: Dispatch<SetStateAction<SceneDocument>>;
   setAutosaveEnabled: (enabled: boolean) => void;
   setNodePreviewEnabled: (nodeId: string, enabled: boolean) => void;
+  setNodeTitleMode: (mode: NodeTitleMode) => void;
   /** Swap each node's embedded definition for the live catalog entry of the same component key. */
   refreshNodeDefinitions: (catalog: PyhopperComponentDefinition[]) => void;
   setNodeSetting: (nodeId: string, settingKey: string, value: unknown) => void;
@@ -143,10 +150,6 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-function normalizeComponentName(name: string) {
-  return name.replace(/[^a-zA-Z0-9]+/g, "").toLowerCase();
-}
-
 const PORT_OPERATION_VALUES = new Set<string>(["Graft", "Simplify", "Flatten", "Reverse", "Reparametrize"]);
 
 function sanitizePortOperations(raw: unknown): Record<string, PortOperation> {
@@ -160,10 +163,6 @@ function sanitizePortOperations(raw: unknown): Record<string, PortOperation> {
     }
   }
   return result;
-}
-
-function componentIs(definition: PyhopperComponentDefinition, componentName: string) {
-  return normalizeComponentName(definition.component) === normalizeComponentName(componentName);
 }
 
 function legacyFrontendConfig(definition: PyhopperComponentDefinition): Record<string, unknown> {
@@ -207,7 +206,7 @@ function sanitizeNodeSettings(
       : {};
   const defaults = settingDefaults(definition);
 
-  if (componentIs(definition, "NumberSlider")) {
+  if (isSpecialComponent(definition, "numberSlider")) {
     const legacyValueKey = definition.outputs[0]?.name ?? "value";
     const rawValue = nextSettings.value ?? nextValues[legacyValueKey] ?? defaults.value;
     const rawMin = nextSettings.min ?? defaults.min;
@@ -253,11 +252,11 @@ function sanitizeNodeValues(definition: PyhopperComponentDefinition, values: unk
       ? { ...(values as Record<string, unknown>) }
       : {};
 
-  if (componentIs(definition, "NumberSlider")) {
+  if (isSpecialComponent(definition, "numberSlider")) {
     return {};
   }
 
-  if (componentIs(definition, "PointOnCurve")) {
+  if (isSpecialComponent(definition, "pointOnCurve")) {
     const min = 0;
     const max = 1;
     const fallbackValue = 0.5;
@@ -268,18 +267,18 @@ function sanitizeNodeValues(definition: PyhopperComponentDefinition, values: unk
     };
   }
 
-  if (componentIs(definition, "BooleanToggle")) {
+  if (isSpecialComponent(definition, "booleanToggle")) {
     return { value: typeof nextValues.value === "boolean" ? nextValues.value : settingDefaults(definition).value === true };
   }
 
-  if (componentIs(definition, "MDSlider")) {
+  if (isSpecialComponent(definition, "mdSlider")) {
     return {
       x: isFiniteNumber(nextValues.x) ? nextValues.x : configNumber(definition, "x", 0.5),
       y: isFiniteNumber(nextValues.y) ? nextValues.y : configNumber(definition, "y", 0.5),
     };
   }
 
-  if (componentIs(definition, "GraphMapper")) {
+  if (isSpecialComponent(definition, "graphMapper")) {
     const graphType =
       typeof nextValues.graphType === "string" &&
       ["linear", "bezier", "sine", "gaussian"].includes(nextValues.graphType)
@@ -296,7 +295,7 @@ function sanitizeNodeValues(definition: PyhopperComponentDefinition, values: unk
     };
   }
 
-  if (componentIs(definition, "Panel")) {
+  if (isSpecialComponent(definition, "panel")) {
     const defaults = { ...settingDefaults(definition), ...(definition.initial_values ?? {}) };
     const textAlign =
       nextValues.textAlign === "center" || nextValues.textAlign === "right"
@@ -461,6 +460,7 @@ function parseStoredGraphSettings(rawValue: unknown): StoredGraphSettings | null
       schemaVersion: GRAPH_SNAPSHOT_SCHEMA_VERSION,
       autosaveEnabled: typeof parsed.autosaveEnabled === "boolean" ? parsed.autosaveEnabled : false,
       realtimeGenerationEnabled: parsed.realtimeGenerationEnabled,
+      nodeTitleMode: parsed.nodeTitleMode === "nickname" ? "nickname" : "display",
     };
   } catch {
     return null;
@@ -499,7 +499,7 @@ function buildGraphDocument(
   scene: SceneDocument,
 ): GraphDocument {
   const graphNodes: GraphNode[] = nodes.map((node) => {
-    if (componentIs(node.data.definition, "Object Reference")) {
+    if (isSpecialComponent(node.data.definition, "objectReference")) {
       return {
         id: node.id,
         kind: "object-reference",
@@ -591,6 +591,7 @@ export function GraphEditorProvider({ children, projectId }: { children: ReactNo
   const [autosaveEnabled, setAutosaveEnabledState] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [realtimeGenerationEnabled, setRealtimeGenerationEnabledState] = useState(true);
+  const [nodeTitleMode, setNodeTitleModeState] = useState<NodeTitleMode>("display");
   const graphDocumentRef = useRef(graphDocumentPlaceholder());
   const isExportingRef = useRef(false);
   const isHydratedRef = useRef(false);
@@ -707,6 +708,7 @@ export function GraphEditorProvider({ children, projectId }: { children: ReactNo
     if (storedSettings) {
       setAutosaveEnabledState(storedSettings.autosaveEnabled);
       setRealtimeGenerationEnabledState(storedSettings.realtimeGenerationEnabled);
+      setNodeTitleModeState(storedSettings.nodeTitleMode ?? "display");
     }
 
     persistedSnapshotRef.current = serializeComparable(storedSnapshot);
@@ -811,7 +813,7 @@ export function GraphEditorProvider({ children, projectId }: { children: ReactNo
       nodesRef.current
         .filter(
           (node) =>
-            componentIs(node.data.definition, "Object Reference") &&
+            isSpecialComponent(node.data.definition, "objectReference") &&
             typeof node.data.values.objectId === "string" &&
             deletableIds.has(node.data.values.objectId),
         )
@@ -1097,8 +1099,9 @@ export function GraphEditorProvider({ children, projectId }: { children: ReactNo
       schemaVersion: GRAPH_SNAPSHOT_SCHEMA_VERSION,
       autosaveEnabled,
       realtimeGenerationEnabled: enabled,
+      nodeTitleMode,
     });
-  }, [autosaveEnabled]);
+  }, [autosaveEnabled, nodeTitleMode]);
 
   const setAutosaveEnabled = useCallback((enabled: boolean) => {
     setAutosaveEnabledState(enabled);
@@ -1106,12 +1109,23 @@ export function GraphEditorProvider({ children, projectId }: { children: ReactNo
       schemaVersion: GRAPH_SNAPSHOT_SCHEMA_VERSION,
       autosaveEnabled: enabled,
       realtimeGenerationEnabled,
+      nodeTitleMode,
     });
 
     if (enabled) {
       void saveCurrentDefinition();
     }
-  }, [realtimeGenerationEnabled, saveCurrentDefinition]);
+  }, [nodeTitleMode, realtimeGenerationEnabled, saveCurrentDefinition]);
+
+  const setNodeTitleMode = useCallback((mode: NodeTitleMode) => {
+    setNodeTitleModeState(mode);
+    persistGraphSettings({
+      schemaVersion: GRAPH_SNAPSHOT_SCHEMA_VERSION,
+      autosaveEnabled,
+      realtimeGenerationEnabled,
+      nodeTitleMode: mode,
+    });
+  }, [autosaveEnabled, realtimeGenerationEnabled]);
 
   const importGraph = useCallback((payload: GraphImportResponse) => {
     const sanitizedNodes = payload.flow.nodes.map((node) => sanitizeImportedNode(node as Node<ComponentNodeData>));
@@ -1167,6 +1181,7 @@ export function GraphEditorProvider({ children, projectId }: { children: ReactNo
       isSaving,
       modelUrl,
       nodes,
+      nodeTitleMode,
       realtimeGenerationEnabled,
       renderManifest,
       scene,
@@ -1180,6 +1195,7 @@ export function GraphEditorProvider({ children, projectId }: { children: ReactNo
       setNodes,
       setScene,
       setNodePreviewEnabled,
+      setNodeTitleMode,
       setNodeValue,
       setNodeSetting,
       setPortOperation,
@@ -1205,6 +1221,7 @@ export function GraphEditorProvider({ children, projectId }: { children: ReactNo
       isSaving,
       modelUrl,
       nodes,
+      nodeTitleMode,
       realtimeGenerationEnabled,
       renderManifest,
       scene,
@@ -1216,6 +1233,7 @@ export function GraphEditorProvider({ children, projectId }: { children: ReactNo
       setAutosaveEnabled,
       setNodePreviewEnabled,
       setNodeSetting,
+      setNodeTitleMode,
       setNodeValue,
       setPortOperation,
       setRealtimeGenerationEnabled,
