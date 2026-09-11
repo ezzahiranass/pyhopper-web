@@ -77,6 +77,7 @@ class SurfaceFreeformComponentTests(unittest.TestCase):
 
         result = BoundarySurfaces(tree)
 
+        # LIST-only component: one call per branch, paths are kept (Grasshopper does the same)
         self.assertEqual(result.paths, tree.paths)
         self.assertEqual(len(result.branch(TreePath(0))), 1)
         self.assertEqual(len(result.branch(TreePath(2))), 1)

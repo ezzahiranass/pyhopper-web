@@ -75,9 +75,10 @@ class RegionComponentTests(unittest.TestCase):
 
         result = RegionUnion(source)
 
-        self.assertEqual(result.paths, source.paths)
-        self.assertAlmostEqual(polyline_area(result.branch(TreePath(0))[0]), 1.0)
-        self.assertAlmostEqual(polyline_area(result.branch(TreePath(2))[0]), 3.0)
+        # the union of a branch is a list of outlines, so it lands at {path;0} like every list output
+        self.assertEqual(result.paths, [TreePath(0, 0), TreePath(2, 0)])
+        self.assertAlmostEqual(polyline_area(result.branch(TreePath(0, 0))[0]), 1.0)
+        self.assertAlmostEqual(polyline_area(result.branch(TreePath(2, 0))[0]), 3.0)
 
 
 if __name__ == "__main__":
