@@ -93,6 +93,8 @@ type GraphEditorContextValue = {
   setScene: Dispatch<SetStateAction<SceneDocument>>;
   setAutosaveEnabled: (enabled: boolean) => void;
   setNodePreviewEnabled: (nodeId: string, enabled: boolean) => void;
+  /** Swap each node's embedded definition for the live catalog entry of the same component key. */
+  refreshNodeDefinitions: (catalog: PyhopperComponentDefinition[]) => void;
   setNodeSetting: (nodeId: string, settingKey: string, value: unknown) => void;
   setNodeValue: (nodeId: string, valueKey: string, value: unknown) => void;
   setPortOperation: (nodeId: string, portKind: "input" | "output", portName: string, operation: PortOperation) => void;
@@ -872,6 +874,30 @@ export function GraphEditorProvider({ children, projectId }: { children: ReactNo
     );
   }, []);
 
+  const refreshNodeDefinitions = useCallback((catalog: PyhopperComponentDefinition[]) => {
+    const byKey = new Map(catalog.map((definition) => [definition.component_key, definition] as const));
+    setNodes((currentNodes) => {
+      let changed = false;
+      const nextNodes = currentNodes.map((node) => {
+        const fresh = byKey.get(node.data.definition.component_key);
+        if (!fresh || serializeComparable(fresh) === serializeComparable(node.data.definition)) {
+          return node;
+        }
+        changed = true;
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            definition: fresh,
+            settings: sanitizeNodeSettings(fresh, node.data.settings, node.data.values),
+            values: sanitizeNodeValues(fresh, node.data.values),
+          },
+        };
+      });
+      return changed ? nextNodes : currentNodes;
+    });
+  }, []);
+
   const saveGraphSnapshot = useCallback((flow: {
     nodes: Node<ComponentNodeData>[];
     edges: Edge[];
@@ -1144,6 +1170,7 @@ export function GraphEditorProvider({ children, projectId }: { children: ReactNo
       realtimeGenerationEnabled,
       renderManifest,
       scene,
+      refreshNodeDefinitions,
       requestRealtimeGeneration,
       saveCurrentDefinition,
       saveGraphSnapshot,
@@ -1181,6 +1208,7 @@ export function GraphEditorProvider({ children, projectId }: { children: ReactNo
       realtimeGenerationEnabled,
       renderManifest,
       scene,
+      refreshNodeDefinitions,
       requestRealtimeGeneration,
       saveCurrentDefinition,
       saveGraphSnapshot,

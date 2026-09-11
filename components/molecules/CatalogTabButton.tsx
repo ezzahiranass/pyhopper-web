@@ -6,6 +6,7 @@ type CatalogTabButtonProps = {
   activeClassName?: string;
   label: string;
   onClick: () => void;
+  title?: string;
 };
 
 export function CatalogTabButton({
@@ -14,11 +15,12 @@ export function CatalogTabButton({
   className,
   label,
   onClick,
+  title,
 }: CatalogTabButtonProps) {
   const resolvedClassName = `${className ?? ""}${active && activeClassName ? ` ${activeClassName}` : ""}`.trim();
 
   return (
-    <button className={resolvedClassName} onClick={onClick} type="button">
+    <button className={resolvedClassName} onClick={onClick} title={title} type="button">
       {label}
     </button>
   );

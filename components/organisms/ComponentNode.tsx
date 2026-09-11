@@ -5,7 +5,7 @@ import { type NodeProps } from "@xyflow/react";
 import { GraphPortRow } from "@/components/molecules/GraphPortRow";
 import { renderSpecialNode } from "@/components/organisms/special-nodes/registry";
 import { useGraphEditor } from "@/components/providers/GraphEditorProvider";
-import { nodeTooltip, portTooltip, type ComponentNodeData } from "@/lib/graph/types";
+import { componentDisplayName, nodeTooltip, portTooltip, type ComponentNodeData } from "@/lib/graph/types";
 
 const PORT_OP_INITIAL: Record<string, string> = {
   Graft: "G",
@@ -100,7 +100,7 @@ export function ComponentNode({ data, id, selected }: NodeProps) {
 
         <div className="component-node__center">
           <div className="component-node__title-wrap">
-            <h3 className="component-node__title">{definition.component}</h3>
+            <h3 className="component-node__title">{componentDisplayName(definition)}</h3>
           </div>
         </div>
 

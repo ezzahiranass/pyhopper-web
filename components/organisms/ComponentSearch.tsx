@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { SearchPalette } from "@/components/organisms/SearchPalette";
 import { buildPanelSearchDefinition } from "@/lib/graph/panelSearch";
 import { buildSliderSearchDefinition } from "@/lib/graph/sliderSearch";
-import type { PyhopperComponentDefinition } from "@/lib/graph/types";
+import { componentDisplayName, componentNickname, type PyhopperComponentDefinition } from "@/lib/graph/types";
 
 function fieldMatchScore(value: string, query: string, weight: number) {
   const normalizedValue = value.toLowerCase();
@@ -21,7 +21,12 @@ function componentSearchScore(definition: PyhopperComponentDefinition, query: st
   let score = 0;
 
   for (const term of terms) {
-    const nameScore = fieldMatchScore(definition.component, term, 1000);
+    const nickname = componentNickname(definition);
+    const nameScore = Math.max(
+      fieldMatchScore(componentDisplayName(definition), term, 1000),
+      fieldMatchScore(definition.component, term, 900),
+      nickname ? fieldMatchScore(nickname, term, 1000) : 0,
+    );
     const descriptionScore = fieldMatchScore(definition.description, term, 500);
     const portScore = Math.max(
       ...[...definition.inputs, ...definition.outputs].map((port) =>
@@ -103,7 +108,7 @@ export function ComponentSearch({
           .sort(
             (left, right) =>
               right.score - left.score ||
-              left.definition.component.localeCompare(right.definition.component) ||
+              componentDisplayName(left.definition).localeCompare(componentDisplayName(right.definition)) ||
               left.index - right.index,
           )
           .map((result) => result.definition);
@@ -120,7 +125,7 @@ export function ComponentSearch({
 
   const tooltipFor = (definition: PyhopperComponentDefinition) =>
     [
-      `${definition.tab} > ${definition.category} > ${definition.component}`,
+      `${definition.tab} > ${definition.category} > ${componentDisplayName(definition)}${componentNickname(definition) ? ` (${componentNickname(definition)})` : ""}`,
       definition.description,
       definition.component === "NumberSlider" && query.trim()
         ? `Slider syntax: ${query.trim()}`
@@ -144,8 +149,8 @@ export function ComponentSearch({
       isOpen={isOpen}
       items={results.map((definition) => ({
         id: `${definition.tab}-${definition.category}-${definition.component}-${definition.initial_settings?.min ?? "base"}-${definition.initial_settings?.value ?? "base"}-${definition.initial_settings?.max ?? "base"}-${definition.initial_values?.text ?? "base"}`,
-        label: definition.component,
-        metadata: `${definition.tab} > ${definition.category}`,
+        label: componentDisplayName(definition),
+        metadata: [componentNickname(definition), `${definition.tab} > ${definition.category}`].filter(Boolean).join(" · "),
         title: tooltipFor(definition),
       }))}
       onActiveIndexChange={setActiveIndex}

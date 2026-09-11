@@ -37,6 +37,7 @@ import { useTheme } from "@/components/providers/ThemeProvider";
 import { alignGraphNodes, type NodeAlignment } from "@/lib/graph/alignment";
 import {
   BUILTIN_GRAPH_NODE_DEFINITIONS,
+  componentDisplayName,
   type ComponentNodeData,
   type PortOperation,
   type PanelTextAlignment,
@@ -132,6 +133,7 @@ export function PyhopperFlowCanvas() {
     hasStoredSnapshot,
     isHydrated,
     nodes,
+    refreshNodeDefinitions,
     requestRealtimeGeneration,
     saveGraphSnapshot,
     setEdges,
@@ -171,6 +173,14 @@ export function PyhopperFlowCanvas() {
 
     return () => controller.abort();
   }, []);
+
+  // Stored snapshots embed the definition each node was created with; once the live catalog is
+  // in, bring every node up to date (new metadata, renamed ports) without touching its values.
+  useEffect(() => {
+    if (isHydrated && catalog.length > BUILTIN_GRAPH_NODE_DEFINITIONS.length) {
+      refreshNodeDefinitions(catalog);
+    }
+  }, [catalog, isHydrated, refreshNodeDefinitions]);
 
   const nodeTypes = useMemo(() => ({ component: ComponentNode }), []);
   const edgeTypes = useMemo(() => ({ wire: WireEdge }), []);
@@ -730,7 +740,7 @@ export function PyhopperFlowCanvas() {
             top: pendingPlacement.y,
           }}
         >
-          {pendingPlacement.definition.component}
+          {componentDisplayName(pendingPlacement.definition)}
         </div>
       ) : null}
       <CanvasActionBar
