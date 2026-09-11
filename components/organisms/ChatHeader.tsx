@@ -1,24 +1,40 @@
 "use client";
 
-import { X } from "lucide-react";
+import { History, Plus, X } from "lucide-react";
 
 import { IconButton } from "@/components/atoms/IconButton";
+import { FloatingActionPanelHeader } from "@/components/molecules/FloatingActionPanelHeader";
 
-export function ChatHeader({ meta, onClose }: { meta: string; onClose: () => void }) {
+type ChatHeaderProps = {
+  meta: string;
+  onClose: () => void;
+  onNewChat: () => void;
+  onShowHistory: () => void;
+};
+
+export function ChatHeader({
+  meta,
+  onClose,
+  onNewChat,
+  onShowHistory,
+}: ChatHeaderProps) {
   return (
-    <div className="chat-header">
-      <div aria-hidden="true" className="chat-header__badge">
-        ◇
-      </div>
-      <div className="chat-header__copy">
-        <p className="chat-header__title">Assistant</p>
-        <p className="chat-header__meta">{meta}</p>
-      </div>
-      <div className="chat-header__actions">
-        <IconButton className="chat-header__btn" label="Close assistant" onClick={onClose}>
-          <X size={16} />
+    <FloatingActionPanelHeader
+      actions={
+        <>
+        <IconButton className="chat-header__btn" label="New chat" onClick={onNewChat}>
+          <Plus />
         </IconButton>
-      </div>
-    </div>
+        <IconButton className="chat-header__btn" label="Chat history" onClick={onShowHistory}>
+          <History />
+        </IconButton>
+        <IconButton className="chat-header__btn" label="Close assistant" onClick={onClose}>
+          <X />
+        </IconButton>
+        </>
+      }
+      meta={meta}
+      title="Assistant"
+    />
   );
 }

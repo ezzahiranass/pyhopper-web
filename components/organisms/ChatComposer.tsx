@@ -1,6 +1,9 @@
 "use client";
 
 import { type ChangeEvent, type KeyboardEvent, type RefObject } from "react";
+import { SendHorizontal } from "lucide-react";
+
+import { IconButton } from "@/components/atoms/IconButton";
 
 export function ChatComposer({
   draft,
@@ -25,22 +28,18 @@ export function ChatComposer({
           className="chat-input"
           onChange={onChange}
           onKeyDown={onKeyDown}
-          placeholder="Ask, edit the graph, or describe a shape..."
-          rows={2}
+          placeholder="Ask about or edit this graph..."
+          rows={1}
           value={draft}
         />
-        <div className="chat-composer__footer">
-          <span className="chat-composer__hint">+ graph · + selection</span>
-          <button
-            className="chat-send"
-            disabled={!draft.trim() || typing}
-            onClick={onSend}
-            title="Send"
-            type="button"
-          >
-            Send ⏎
-          </button>
-        </div>
+        <IconButton
+          className="chat-send"
+          disabled={!draft.trim() || typing}
+          label="Send message"
+          onClick={onSend}
+        >
+          <SendHorizontal />
+        </IconButton>
       </div>
     </div>
   );

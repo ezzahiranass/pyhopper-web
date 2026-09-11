@@ -54,10 +54,14 @@ function buildProjectContext(
   };
 }
 
-export function ProjectChat() {
+type ProjectChatProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+};
+
+export function ProjectChat({ open, onOpenChange }: ProjectChatProps) {
   const { activeProjectId, projectDocuments, projects } = useProjects();
   const { importGraph, nodes, selectedNodeIds } = useGraphEditor();
-  const [open, setOpen] = useState(false);
   const [view, setView] = useState<View>("chat");
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -292,7 +296,7 @@ export function ProjectChat() {
 
   return (
     <>
-      {!open ? <ChatTriggerButton onToggle={() => setOpen(true)} /> : null}
+      <ChatTriggerButton open={open} onToggle={() => onOpenChange(!open)} />
       {open ? (
         <ChatWindow
           activeId={activeId}
@@ -305,7 +309,7 @@ export function ProjectChat() {
           messages={messages}
           messagesEndRef={messagesEndRef}
           confirmDeleteId={confirmDeleteId}
-          onClose={() => setOpen(false)}
+          onClose={() => onOpenChange(false)}
           onDelete={handleDelete}
           onDeleteConfirmChange={setConfirmDeleteId}
           onDraftChange={handleInput}

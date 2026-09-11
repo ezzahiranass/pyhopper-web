@@ -4,6 +4,8 @@ from pathlib import Path
 import os
 import sys
 from typing import Any
+from urllib.parse import unquote
+from uuid import uuid4
 
 from celery.exceptions import TimeoutError as CeleryTimeoutError
 from celery.result import AsyncResult
@@ -21,6 +23,7 @@ if str(REPO_ROOT) not in sys.path:
 from ai import generate_chat_reply
 from celery_app import celery_app
 from definition_importer import build_test_import_payload
+from ghx_importer import GhxImportError, MAX_GHX_BYTES, build_ghx_import_payload
 from pyhopper.admin_utils import list_components
 from tasks import export_graph_task, run_test_export_task
 
@@ -180,6 +183,35 @@ async def import_test_graph(request: Request) -> JSONResponse:
         return JSONResponse(content=imported)
     except Exception as exc:
         return _error_response(500, "test_import_failed", str(exc))
+
+
+@app.post("/graphs/import-ghx")
+async def import_ghx_graph(request: Request) -> JSONResponse:
+    filename = unquote(request.headers.get("x-filename", "imported.ghx"))
+    if not filename.lower().endswith(".ghx"):
+        return _error_response(400, "invalid_ghx_filename", "Only .ghx files are supported")
+
+    content = await request.body()
+    if not content:
+        return _error_response(400, "empty_ghx", "The uploaded GHX file is empty")
+    if len(content) > MAX_GHX_BYTES:
+        return _error_response(413, "ghx_too_large", "The uploaded GHX file exceeds the 10 MB limit")
+
+    graph_id = f"ghx-{uuid4()}"
+    try:
+        imported = await run_in_threadpool(
+            build_ghx_import_payload,
+            graph_id,
+            content,
+            filename,
+            GENERATED_DIR,
+        )
+        imported["glb_url"] = _generated_glb_url(request, imported["filename"])
+        return JSONResponse(content=imported)
+    except GhxImportError as exc:
+        return _error_response(400, "ghx_import_failed", str(exc))
+    except Exception as exc:
+        return _error_response(500, "ghx_import_failed", str(exc))
 
 
 @app.post("/graphs/export")

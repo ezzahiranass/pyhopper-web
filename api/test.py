@@ -28,10 +28,10 @@ OUTPUT_NAME = "pyhopper-test.glb"
 
 def build_demo_geometry() -> DataTree:
     """Build a small declarative scene from normal pyhopper components."""
-    origin_circle = AtomicPoint(0.0, 0.0, 0.0)
+    origin_circle = DataTree.from_item(AtomicPoint(0.0, 0.0, 0.0))
     origin_rectangle = AtomicPoint(5.5, 0.0, 0.0)
     origin_polygon = AtomicPoint(0.0, 5.0, 0.0)
-    line_start = AtomicPoint(-4.0, -3.0, 0.0)
+    line_start = DataTree.from_item(AtomicPoint(-4.0, -3.0, 0.0))
     line_direction = AtomicVector(1.0, 0.75, 0.0)
     x_axis = UnitX()
     y_axis = UnitY()

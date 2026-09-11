@@ -3,9 +3,7 @@
 import { type NodeProps } from "@xyflow/react";
 
 import { GraphPortRow } from "@/components/molecules/GraphPortRow";
-import { NumberSliderNode } from "@/components/organisms/NumberSliderNode";
-import { ObjectReferenceNode } from "@/components/organisms/ObjectReferenceNode";
-import { PanelNode } from "@/components/organisms/PanelNode";
+import { renderSpecialNode } from "@/components/organisms/special-nodes/registry";
 import { useGraphEditor } from "@/components/providers/GraphEditorProvider";
 import { nodeTooltip, portTooltip, type ComponentNodeData } from "@/lib/graph/types";
 
@@ -68,16 +66,14 @@ export function ComponentNode({ data, id, selected }: NodeProps) {
     );
   };
 
-  if (definition.frontend_preset === "number-slider") {
-    return <NumberSliderNode data={typedData} id={id} onContextMenu={handleContextMenu} title={nodeTooltip(definition)} />;
-  }
-
-  if (definition.frontend_preset === "panel") {
-    return <PanelNode data={typedData} id={id} onContextMenu={handleContextMenu} title={nodeTooltip(definition)} />;
-  }
-
-  if (definition.frontend_preset === "object-reference") {
-    return <ObjectReferenceNode data={typedData} id={id} onContextMenu={handleContextMenu} />;
+  const specialNode = renderSpecialNode(definition, {
+    data: typedData,
+    id,
+    onContextMenu: handleContextMenu,
+    title: nodeTooltip(definition),
+  });
+  if (specialNode) {
+    return specialNode;
   }
 
   return (

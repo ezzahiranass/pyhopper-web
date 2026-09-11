@@ -10,9 +10,10 @@ type ObjectReferenceNodeProps = {
   data: ComponentNodeData;
   id: string;
   onContextMenu: (event: React.MouseEvent<HTMLElement>) => void;
+  title?: string;
 };
 
-export function ObjectReferenceNode({ data, id, onContextMenu }: ObjectReferenceNodeProps) {
+export function ObjectReferenceNode({ data, id, onContextMenu, title }: ObjectReferenceNodeProps) {
   const { requestRealtimeGeneration, scene, setNodeValue } = useGraphEditor();
   const selectedObjectId = typeof data.values.objectId === "string" ? data.values.objectId : "";
   const selectedObject = scene.objects[selectedObjectId];
@@ -49,6 +50,7 @@ export function ObjectReferenceNode({ data, id, onContextMenu }: ObjectReference
     <article
       className={`component-node component-node--object-reference${data.previewEnabled ? "" : " component-node--preview-off"}`}
       onContextMenu={onContextMenu}
+      title={title}
     >
       <div className="component-node__body component-node__body--preset">
         <div className="component-node__center component-node__center--slider">

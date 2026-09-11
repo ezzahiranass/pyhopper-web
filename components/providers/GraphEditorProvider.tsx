@@ -93,6 +93,7 @@ type GraphEditorContextValue = {
   setScene: Dispatch<SetStateAction<SceneDocument>>;
   setAutosaveEnabled: (enabled: boolean) => void;
   setNodePreviewEnabled: (nodeId: string, enabled: boolean) => void;
+  setNodeSetting: (nodeId: string, settingKey: string, value: unknown) => void;
   setNodeValue: (nodeId: string, valueKey: string, value: unknown) => void;
   setPortOperation: (nodeId: string, portKind: "input" | "output", portName: string, operation: PortOperation) => void;
   setRealtimeGenerationEnabled: (enabled: boolean) => void;
@@ -140,16 +141,8 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-function defaultSliderValue(definition: PyhopperComponentDefinition): number | null {
-  if (definition.frontend_preset !== "number-slider") {
-    return null;
-  }
-
-  const config = definition.frontend_config ?? {};
-  const min = isFiniteNumber(config.min) ? config.min : 0;
-  const max = isFiniteNumber(config.max) ? config.max : 1;
-  const fallbackValue = min <= max ? min : max;
-  return isFiniteNumber(config.value) ? config.value : fallbackValue;
+function normalizeComponentName(name: string) {
+  return name.replace(/[^a-zA-Z0-9]+/g, "").toLowerCase();
 }
 
 const PORT_OPERATION_VALUES = new Set<string>(["Graft", "Simplify", "Flatten", "Reverse", "Reparametrize"]);
@@ -167,20 +160,161 @@ function sanitizePortOperations(raw: unknown): Record<string, PortOperation> {
   return result;
 }
 
+function componentIs(definition: PyhopperComponentDefinition, componentName: string) {
+  return normalizeComponentName(definition.component) === normalizeComponentName(componentName);
+}
+
+function legacyFrontendConfig(definition: PyhopperComponentDefinition): Record<string, unknown> {
+  const config = (definition as { frontend_config?: unknown }).frontend_config;
+  return config && typeof config === "object" && !Array.isArray(config) ? config as Record<string, unknown> : {};
+}
+
+function settingDefaults(definition: PyhopperComponentDefinition): Record<string, unknown> {
+  return {
+    ...legacyFrontendConfig(definition),
+    ...(definition.settings_defaults ?? {}),
+    ...(definition.initial_settings ?? {}),
+  };
+}
+
+function configNumber(definition: PyhopperComponentDefinition, key: string, fallback: number) {
+  const value = settingDefaults(definition)[key];
+  return isFiniteNumber(value) ? value : fallback;
+}
+
+function defaultSliderValue(definition: PyhopperComponentDefinition): number {
+  const config = settingDefaults(definition);
+  const min = isFiniteNumber(config.min) ? config.min : 0;
+  const max = isFiniteNumber(config.max) ? config.max : 1;
+  const fallbackValue = min <= max ? min : max;
+  return isFiniteNumber(config.value) ? config.value : fallbackValue;
+}
+
+function sanitizeNodeSettings(
+  definition: PyhopperComponentDefinition,
+  settings: unknown,
+  values: unknown = {},
+): Record<string, unknown> {
+  const nextSettings =
+    settings && typeof settings === "object" && !Array.isArray(settings)
+      ? { ...(settings as Record<string, unknown>) }
+      : {};
+  const nextValues =
+    values && typeof values === "object" && !Array.isArray(values)
+      ? values as Record<string, unknown>
+      : {};
+  const defaults = settingDefaults(definition);
+
+  if (componentIs(definition, "NumberSlider")) {
+    const legacyValueKey = definition.outputs[0]?.name ?? "value";
+    const rawValue = nextSettings.value ?? nextValues[legacyValueKey] ?? defaults.value;
+    const rawMin = nextSettings.min ?? defaults.min;
+    const rawMax = nextSettings.max ?? defaults.max;
+    const min = isFiniteNumber(rawMin) ? rawMin : 0;
+    const max = isFiniteNumber(rawMax) ? rawMax : 1;
+    const lower = Math.min(min, max);
+    const upper = Math.max(min, max);
+    const value = isFiniteNumber(rawValue) ? rawValue : defaultSliderValue(definition);
+    const decimals = isFiniteNumber(nextSettings.decimals)
+      ? Math.max(0, Math.min(Math.trunc(nextSettings.decimals), 12))
+      : isFiniteNumber(defaults.decimals)
+        ? Math.max(0, Math.min(Math.trunc(defaults.decimals), 12))
+        : 2;
+    const rounding =
+      nextSettings.rounding === "integer" ||
+      nextSettings.rounding === "even" ||
+      nextSettings.rounding === "odd" ||
+      nextSettings.rounding === "real"
+        ? nextSettings.rounding
+        : typeof defaults.rounding === "string"
+          ? defaults.rounding
+          : "real";
+
+    return {
+      value: Math.min(Math.max(value, lower), upper),
+      min: lower,
+      max: upper,
+      decimals,
+      rounding,
+    };
+  }
+
+  return {
+    ...defaults,
+    ...nextSettings,
+  };
+}
+
 function sanitizeNodeValues(definition: PyhopperComponentDefinition, values: unknown): Record<string, unknown> {
   const nextValues =
     values && typeof values === "object" && !Array.isArray(values)
       ? { ...(values as Record<string, unknown>) }
       : {};
 
-  if (definition.frontend_preset === "number-slider") {
-    const primaryOutput = definition.outputs[0]?.name ?? "value";
-    const sliderValue = nextValues[primaryOutput];
-    const fallbackValue = defaultSliderValue(definition);
+  if (componentIs(definition, "NumberSlider")) {
+    return {};
+  }
+
+  if (componentIs(definition, "PointOnCurve")) {
+    const min = 0;
+    const max = 1;
+    const fallbackValue = 0.5;
+    const parameter = isFiniteNumber(nextValues.parameter) ? nextValues.parameter : fallbackValue;
 
     return {
-      [primaryOutput]:
-        isFiniteNumber(sliderValue) && fallbackValue !== null ? sliderValue : fallbackValue ?? 0,
+      parameter: Math.min(Math.max(parameter, Math.min(min, max)), Math.max(min, max)),
+    };
+  }
+
+  if (componentIs(definition, "BooleanToggle")) {
+    return { value: typeof nextValues.value === "boolean" ? nextValues.value : settingDefaults(definition).value === true };
+  }
+
+  if (componentIs(definition, "MDSlider")) {
+    return {
+      x: isFiniteNumber(nextValues.x) ? nextValues.x : configNumber(definition, "x", 0.5),
+      y: isFiniteNumber(nextValues.y) ? nextValues.y : configNumber(definition, "y", 0.5),
+    };
+  }
+
+  if (componentIs(definition, "GraphMapper")) {
+    const graphType =
+      typeof nextValues.graphType === "string" &&
+      ["linear", "bezier", "sine", "gaussian"].includes(nextValues.graphType)
+        ? nextValues.graphType
+        : settingDefaults(definition).graphType ?? "bezier";
+    return {
+      graphType,
+      xMin: isFiniteNumber(nextValues.xMin) ? nextValues.xMin : configNumber(definition, "xMin", 0),
+      xMax: isFiniteNumber(nextValues.xMax) ? nextValues.xMax : configNumber(definition, "xMax", 1),
+      yMin: isFiniteNumber(nextValues.yMin) ? nextValues.yMin : configNumber(definition, "yMin", 0),
+      yMax: isFiniteNumber(nextValues.yMax) ? nextValues.yMax : configNumber(definition, "yMax", 1),
+      controlY1: isFiniteNumber(nextValues.controlY1) ? nextValues.controlY1 : configNumber(definition, "controlY1", 0.15),
+      controlY2: isFiniteNumber(nextValues.controlY2) ? nextValues.controlY2 : configNumber(definition, "controlY2", 0.85),
+    };
+  }
+
+  if (componentIs(definition, "Panel")) {
+    const defaults = { ...settingDefaults(definition), ...(definition.initial_values ?? {}) };
+    const textAlign =
+      nextValues.textAlign === "center" || nextValues.textAlign === "right"
+        ? nextValues.textAlign
+        : defaults.textAlign === "center" ||
+            defaults.textAlign === "right"
+          ? defaults.textAlign
+          : "left";
+    return {
+      text:
+        typeof nextValues.text === "string"
+          ? nextValues.text
+          : typeof defaults.text === "string"
+            ? defaults.text
+            : "",
+      textAlign,
+      multilineData:
+        typeof nextValues.multilineData === "boolean"
+          ? nextValues.multilineData
+          : defaults.multilineData === true,
     };
   }
 
@@ -197,6 +331,7 @@ function sanitizeStoredNode(node: Node<ComponentNodeData>): Node<ComponentNodeDa
       definition: node.data.definition,
       previewEnabled: typeof node.data.previewEnabled === "boolean" ? node.data.previewEnabled : true,
       previews: {},
+      settings: sanitizeNodeSettings(node.data.definition, node.data.settings, node.data.values),
       values: sanitizeNodeValues(node.data.definition, node.data.values),
       portOperations: sanitizePortOperations(node.data.portOperations),
     },
@@ -217,6 +352,7 @@ function sanitizeImportedNode(node: Node<ComponentNodeData>): Node<ComponentNode
         node.data.previews && typeof node.data.previews === "object" && !Array.isArray(node.data.previews)
           ? node.data.previews
           : {},
+      settings: sanitizeNodeSettings(node.data.definition, node.data.settings, node.data.values),
       values: sanitizeNodeValues(node.data.definition, node.data.values),
       portOperations: sanitizePortOperations(node.data.portOperations),
     },
@@ -361,7 +497,7 @@ function buildGraphDocument(
   scene: SceneDocument,
 ): GraphDocument {
   const graphNodes: GraphNode[] = nodes.map((node) => {
-    if (node.data.definition.frontend_preset === "object-reference") {
+    if (componentIs(node.data.definition, "Object Reference")) {
       return {
         id: node.id,
         kind: "object-reference",
@@ -383,6 +519,7 @@ function buildGraphDocument(
       },
       position: node.position,
       previewEnabled: node.data.previewEnabled,
+      settings: sanitizeNodeSettings(node.data.definition, node.data.settings, node.data.values),
       values: sanitizeNodeValues(node.data.definition, node.data.values),
       portOperations: node.data.portOperations,
     };
@@ -408,6 +545,10 @@ function buildGraphDocument(
 
 export function getInitialNodeValues(definition: PyhopperComponentDefinition): Record<string, unknown> {
   return sanitizeNodeValues(definition, {});
+}
+
+export function getInitialNodeSettings(definition: PyhopperComponentDefinition): Record<string, unknown> {
+  return sanitizeNodeSettings(definition, {});
 }
 
 function graphDocumentPlaceholder(): GraphDocument {
@@ -607,6 +748,31 @@ export function GraphEditorProvider({ children, projectId }: { children: ReactNo
     );
   }, []);
 
+  const setNodeSetting = useCallback((nodeId: string, settingKey: string, value: unknown) => {
+    setNodes((currentNodes) =>
+      currentNodes.map((node) => {
+        if (node.id !== nodeId) {
+          return node;
+        }
+
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            settings: sanitizeNodeSettings(
+              node.data.definition,
+              {
+                ...node.data.settings,
+                [settingKey]: value,
+              },
+              node.data.values,
+            ),
+          },
+        };
+      }),
+    );
+  }, []);
+
   const addObjectReferenceNode = useCallback((objectId: string) => {
     setNodes((currentNodes) => [
       ...currentNodes.map((node) => ({ ...node, selected: false })),
@@ -622,6 +788,7 @@ export function GraphEditorProvider({ children, projectId }: { children: ReactNo
           definition: OBJECT_REFERENCE_DEFINITION,
           previewEnabled: true,
           previews: {},
+          settings: {},
           values: { objectId },
           portOperations: {},
         },
@@ -642,7 +809,7 @@ export function GraphEditorProvider({ children, projectId }: { children: ReactNo
       nodesRef.current
         .filter(
           (node) =>
-            node.data.definition.frontend_preset === "object-reference" &&
+            componentIs(node.data.definition, "Object Reference") &&
             typeof node.data.values.objectId === "string" &&
             deletableIds.has(node.data.values.objectId),
         )
@@ -987,6 +1154,7 @@ export function GraphEditorProvider({ children, projectId }: { children: ReactNo
       setScene,
       setNodePreviewEnabled,
       setNodeValue,
+      setNodeSetting,
       setPortOperation,
       setRealtimeGenerationEnabled,
       setViewport,
@@ -1019,6 +1187,7 @@ export function GraphEditorProvider({ children, projectId }: { children: ReactNo
       selectedNodeIds,
       setAutosaveEnabled,
       setNodePreviewEnabled,
+      setNodeSetting,
       setNodeValue,
       setPortOperation,
       setRealtimeGenerationEnabled,

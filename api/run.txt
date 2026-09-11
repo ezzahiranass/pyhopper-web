@@ -1,20 +1,26 @@
+Redis:
+  The API and worker read PYHOPPER_REDIS_URL from api/.env (currently redis://127.0.0.1:6379/1 —
+  DB index 1 so another project's Celery worker sharing the same Redis never consumes pyhopper tasks).
+  Any Redis on 127.0.0.1:6379 works. If none is running:
+    docker rm -f pyhopper-redis
+    docker run --name pyhopper-redis -p 6379:6379 -d redis:7-alpine
+  Later restarts:
+    docker start pyhopper-redis
 
-
-First-time Redis init:
-docker rm -f pyhopper-redis
-docker run --name pyhopper-redis -p 6379:6379 -d redis:7-alpine
-
-Later Redis restarts:
-docker start pyhopper-redis
-
-Backend boot:
+Backend boot (terminal 1):
 d:
 cd D:\Apps\pyhopper\pyhopper-web\api
-conda activate flask_env
-uvicorn app:app --reload --host 127.0.0.1 --port 8000
+..\..\.venv\Scripts\uvicorn app:app --reload --host 127.0.0.1 --port 8000
 
-Second terminal:
+Celery worker (terminal 2):
 d:
 cd D:\Apps\pyhopper\pyhopper-web\api
-conda activate flask_env
-celery -A celery_app.celery_app worker --loglevel=info --pool=solo
+..\..\.venv\Scripts\celery -A celery_app.celery_app worker --loglevel=info --pool=solo
+
+Frontend (terminal 3) — port 3001 because 3000 is used by D:\Apps\studio-web:
+d:
+cd D:\Apps\pyhopper\pyhopper-web
+npm run dev -- -p 3001
+
+Health check:
+curl http://127.0.0.1:8000/health

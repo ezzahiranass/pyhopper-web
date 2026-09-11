@@ -31,6 +31,7 @@ import {
   searchProjects,
   setActiveProjectId as persistActiveProjectId,
 } from "@/lib/graph/projectStorage";
+import type { GraphImportResponse } from "@/lib/graph/types";
 
 type ProjectsContextValue = {
   projectDocuments: Record<string, DefinitionDocument>;
@@ -39,6 +40,7 @@ type ProjectsContextValue = {
   isHydrated: boolean;
   canEditProject: (id: string) => boolean;
   createProject: (name?: string) => string;
+  createImportedProject: (name: string, payload: GraphImportResponse) => string;
   deleteProject: (id: string) => void;
   renameProject: (id: string, name: string) => void;
   setProjectVisibility: (id: string, isPublic: boolean) => void;
@@ -177,6 +179,41 @@ export function ProjectsProvider({ children, initialActiveProjectId }: { childre
     [activeProjectId, canEditProject, user],
   );
 
+  const createImportedProject = useCallback(
+    (name: string, payload: GraphImportResponse) => {
+      if (!user || exportingRef.current?.current) {
+        return "";
+      }
+
+      flushRef.current?.();
+      const definition = createDefinitionDraft(user.uid, name);
+      const importedDefinition: DefinitionDocument = {
+        ...definition,
+        snapshot: {
+          schemaVersion: 2,
+          graphId: definition.id,
+          flow: payload.flow,
+          scene: { schemaVersion: 3, objects: {} },
+        },
+        graphExport: {
+          schemaVersion: 2,
+          graphId: definition.id,
+          modelUrl: payload.glb_url,
+          generatedPython: payload.python_source,
+          renderManifest: {
+            ...payload.render_manifest,
+            graphId: definition.id,
+          },
+        },
+      };
+      setDefinitions((currentDefinitions) => [importedDefinition, ...currentDefinitions]);
+      setActiveProjectId(definition.id);
+      void saveDefinition(user.uid, importedDefinition);
+      return definition.id;
+    },
+    [user],
+  );
+
   const renameProject = useCallback((id: string, name: string) => {
     if (!user || !canEditProject(id)) {
       return;
@@ -268,6 +305,7 @@ export function ProjectsProvider({ children, initialActiveProjectId }: { childre
     isHydrated,
     canEditProject,
     createProject,
+    createImportedProject,
     deleteProject,
     renameProject,
     setProjectVisibility,
