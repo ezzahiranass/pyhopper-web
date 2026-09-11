@@ -60,9 +60,14 @@ export type PyhopperComponentDefinition = {
   nickname?: string;
   gh_guid?: string | null;
   description: string;
+  /** Call-time `_settings` a node can carry (a slider's range); `initial_settings` are their defaults. */
   settings_schema?: Record<string, PyhopperComponentSetting>;
   settings_defaults?: Record<string, unknown>;
   initial_settings?: Record<string, unknown>;
+  /** Per-node values the compiler bakes into source (a toggle's state); `initial_values` are their defaults. */
+  authored_values?: Record<string, PyhopperComponentSetting>;
+  /** Compiler strategy for the authored values ("literal", "vector", "panel", "graph_mapper", "settings"). */
+  authored_emit?: string | null;
   initial_values?: Record<string, unknown>;
   input_count: number;
   output_count: number;
@@ -77,7 +82,7 @@ export type PyhopperComponentSetting = {
   label?: string;
   max?: number;
   min?: number;
-  type: "bool" | "choice" | "float" | "int" | "string";
+  type: "bool" | "choice" | "float" | "int" | "list" | "string";
 };
 
 export type DataTreePreviewItem = {
@@ -120,6 +125,9 @@ export const OBJECT_REFERENCE_DEFINITION: PyhopperComponentDefinition = {
   category: "Scene",
   component: "Object Reference",
   description: "Reference a durable authored scene object by id.",
+  authored_values: { objectId: { type: "string", default: "", label: "Object" } },
+  authored_emit: null,
+  initial_values: { objectId: "" },
   input_count: 0,
   output_count: 1,
   inputs: [],

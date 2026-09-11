@@ -28,6 +28,7 @@ import {
   OBJECT_REFERENCE_DEFINITION,
 } from "@/lib/graph/types";
 import { useProjects } from "@/components/providers/ProjectsProvider";
+import { sanitizeAgainstSchema, sanitizeAuthoredValues, settingsSchema } from "@/lib/graph/authoredValues";
 import { isSpecialComponent } from "@/lib/graph/specialComponents";
 import { createEmptySceneDocument, normalizeSceneDocument } from "@/lib/scene/scene";
 import type { SceneDocument } from "@/lib/scene/types";
@@ -178,11 +179,6 @@ function settingDefaults(definition: PyhopperComponentDefinition): Record<string
   };
 }
 
-function configNumber(definition: PyhopperComponentDefinition, key: string, fallback: number) {
-  const value = settingDefaults(definition)[key];
-  return isFiniteNumber(value) ? value : fallback;
-}
-
 function defaultSliderValue(definition: PyhopperComponentDefinition): number {
   const config = settingDefaults(definition);
   const min = isFiniteNumber(config.min) ? config.min : 0;
@@ -240,86 +236,21 @@ function sanitizeNodeSettings(
     };
   }
 
-  return {
-    ...defaults,
-    ...nextSettings,
-  };
+  // Schema-driven: declared settings keep a fitting stored value or fall back to their
+  // default; keys the component no longer declares are dropped. Definitions from before
+  // the catalog exposed schemas keep the old merge until the live catalog replaces them.
+  const schema = settingsSchema(definition);
+  if (!schema) {
+    return { ...defaults, ...nextSettings };
+  }
+  return sanitizeAgainstSchema(schema, { ...defaults, ...nextSettings });
 }
 
 function sanitizeNodeValues(definition: PyhopperComponentDefinition, values: unknown): Record<string, unknown> {
-  const nextValues =
-    values && typeof values === "object" && !Array.isArray(values)
-      ? { ...(values as Record<string, unknown>) }
-      : {};
-
   if (isSpecialComponent(definition, "numberSlider")) {
-    return {};
+    return {}; // the slider's value lives in settings (legacy values[<output>] is folded in above)
   }
-
-  if (isSpecialComponent(definition, "pointOnCurve")) {
-    const min = 0;
-    const max = 1;
-    const fallbackValue = 0.5;
-    const parameter = isFiniteNumber(nextValues.parameter) ? nextValues.parameter : fallbackValue;
-
-    return {
-      parameter: Math.min(Math.max(parameter, Math.min(min, max)), Math.max(min, max)),
-    };
-  }
-
-  if (isSpecialComponent(definition, "booleanToggle")) {
-    return { value: typeof nextValues.value === "boolean" ? nextValues.value : settingDefaults(definition).value === true };
-  }
-
-  if (isSpecialComponent(definition, "mdSlider")) {
-    return {
-      x: isFiniteNumber(nextValues.x) ? nextValues.x : configNumber(definition, "x", 0.5),
-      y: isFiniteNumber(nextValues.y) ? nextValues.y : configNumber(definition, "y", 0.5),
-    };
-  }
-
-  if (isSpecialComponent(definition, "graphMapper")) {
-    const graphType =
-      typeof nextValues.graphType === "string" &&
-      ["linear", "bezier", "sine", "gaussian"].includes(nextValues.graphType)
-        ? nextValues.graphType
-        : settingDefaults(definition).graphType ?? "bezier";
-    return {
-      graphType,
-      xMin: isFiniteNumber(nextValues.xMin) ? nextValues.xMin : configNumber(definition, "xMin", 0),
-      xMax: isFiniteNumber(nextValues.xMax) ? nextValues.xMax : configNumber(definition, "xMax", 1),
-      yMin: isFiniteNumber(nextValues.yMin) ? nextValues.yMin : configNumber(definition, "yMin", 0),
-      yMax: isFiniteNumber(nextValues.yMax) ? nextValues.yMax : configNumber(definition, "yMax", 1),
-      controlY1: isFiniteNumber(nextValues.controlY1) ? nextValues.controlY1 : configNumber(definition, "controlY1", 0.15),
-      controlY2: isFiniteNumber(nextValues.controlY2) ? nextValues.controlY2 : configNumber(definition, "controlY2", 0.85),
-    };
-  }
-
-  if (isSpecialComponent(definition, "panel")) {
-    const defaults = { ...settingDefaults(definition), ...(definition.initial_values ?? {}) };
-    const textAlign =
-      nextValues.textAlign === "center" || nextValues.textAlign === "right"
-        ? nextValues.textAlign
-        : defaults.textAlign === "center" ||
-            defaults.textAlign === "right"
-          ? defaults.textAlign
-          : "left";
-    return {
-      text:
-        typeof nextValues.text === "string"
-          ? nextValues.text
-          : typeof defaults.text === "string"
-            ? defaults.text
-            : "",
-      textAlign,
-      multilineData:
-        typeof nextValues.multilineData === "boolean"
-          ? nextValues.multilineData
-          : defaults.multilineData === true,
-    };
-  }
-
-  return nextValues;
+  return sanitizeAuthoredValues(definition, values);
 }
 
 function sanitizeStoredNode(node: Node<ComponentNodeData>): Node<ComponentNodeData> {

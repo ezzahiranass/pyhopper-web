@@ -20,6 +20,7 @@ import {
   type ReactFlowInstance,
 } from "@xyflow/react";
 
+import { AuthoredValuesForm } from "@/components/molecules/AuthoredValuesForm";
 import { ContextMenu, ContextMenuItem } from "@/components/molecules/ContextMenu";
 import { CanvasActionBar } from "@/components/organisms/CanvasActionBar";
 import { ComponentBrowser } from "@/components/organisms/ComponentBrowser";
@@ -86,6 +87,12 @@ type PlacementGesture = PendingPlacement & {
   startY: number;
 };
 
+type AuthoredFormState = {
+  nodeId: string;
+  x: number;
+  y: number;
+};
+
 type NodeContextMenuState = {
   nodeIds: string[];
   submenuSide: "left" | "right";
@@ -120,6 +127,7 @@ export function PyhopperFlowCanvas() {
   const [catalog, setCatalog] = useState<PyhopperComponentDefinition[]>(BUILTIN_GRAPH_NODE_DEFINITIONS);
   const [isCodeView, setIsCodeView] = useState(false);
   const [nodeContextMenu, setNodeContextMenu] = useState<NodeContextMenuState | null>(null);
+  const [authoredForm, setAuthoredForm] = useState<AuthoredFormState | null>(null);
   const [portContextMenu, setPortContextMenu] = useState<PortContextMenuState | null>(null);
   const [pendingPlacement, setPendingPlacement] = useState<PendingPlacement | null>(null);
   const [reactFlow, setReactFlow] = useState<ReactFlowInstance<Node<ComponentNodeData>, Edge> | null>(null);
@@ -140,10 +148,12 @@ export function PyhopperFlowCanvas() {
     setEdges,
     setNodePreviewEnabled,
     setNodes,
+    setNodeValue,
     setPortOperation,
     setViewport,
     viewport,
   } = useGraphEditor();
+  const authoredFormNode = authoredForm ? nodes.find((node) => node.id === authoredForm.nodeId) ?? null : null;
   const isGrasshopperTheme = theme === "grasshopper";
 
   useEffect(() => {
@@ -581,6 +591,12 @@ export function PyhopperFlowCanvas() {
     [nodeContextMenu, requestRealtimeGeneration, setNodePreviewEnabled],
   );
 
+  const openAuthoredForm = useCallback(() => {
+    if (!nodeContextMenu || nodeContextMenu.nodeIds.length !== 1) return;
+    setAuthoredForm({ nodeId: nodeContextMenu.nodeIds[0], x: nodeContextMenu.x, y: nodeContextMenu.y });
+    setNodeContextMenu(null);
+  }, [nodeContextMenu]);
+
   const setPanelTextAlign = useCallback(
     (alignment: PanelTextAlignment) => {
       if (!nodeContextMenu || nodeContextMenu.nodeIds.length !== 1) return;
@@ -834,6 +850,7 @@ export function PyhopperFlowCanvas() {
               }
               setNodeContextMenu(null);
               setPortContextMenu(null);
+              setAuthoredForm(null);
               if (searchState.isOpen) {
                 closeSearch();
               }
@@ -887,6 +904,7 @@ export function PyhopperFlowCanvas() {
               nodeIds={nodeContextMenu.nodeIds}
               nodes={nodes}
               onAlign={alignSelectedNodes}
+              onEditValues={openAuthoredForm}
               onPanelMultilineDataChange={setPanelMultilineData}
               onPanelTextAlign={setPanelTextAlign}
               onPreviewChange={setSelectedPreview}
@@ -894,6 +912,19 @@ export function PyhopperFlowCanvas() {
               x={nodeContextMenu.x}
               y={nodeContextMenu.y}
             />
+          ) : null}
+          {authoredForm && authoredFormNode ? (
+            <div className="authored-values" style={{ left: authoredForm.x, top: authoredForm.y }}>
+              <AuthoredValuesForm
+                definition={authoredFormNode.data.definition}
+                onChange={(key, value) => {
+                  setNodeValue(authoredForm.nodeId, key, value);
+                  requestRealtimeGeneration();
+                }}
+                onClose={() => setAuthoredForm(null)}
+                values={authoredFormNode.data.values}
+              />
+            </div>
           ) : null}
         </>
       ) : (
