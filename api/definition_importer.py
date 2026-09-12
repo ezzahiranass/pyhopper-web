@@ -92,6 +92,7 @@ class NodeRecord:
     variable_name: str
     node_id: str
     definition: dict[str, Any]
+    settings: dict[str, Any]
     values: dict[str, Any]
     port_operations: dict[str, str]
 
@@ -112,6 +113,7 @@ def _node_payload(record: NodeRecord) -> dict[str, Any]:
             "definition": record.definition,
             "previewEnabled": True,
             "previews": {},
+            "settings": record.settings,
             "values": record.values,
             "portOperations": record.port_operations,
         },
@@ -145,7 +147,8 @@ def _create_slider_node(
         variable_name=node_id,
         node_id=node_id,
         definition=NUMBER_SLIDER_DEF,
-        values={_primary_output_name(NUMBER_SLIDER_DEF): value},
+        settings={"value": value},
+        values={},
         port_operations={},
     )
     nodes.append(_node_payload(record))
@@ -277,6 +280,7 @@ def parse_definition_to_graph(project_id: str, source: str) -> tuple[dict[str, A
                 variable_name=variable_name,
                 node_id=variable_name,
                 definition=definition,
+                settings={},
                 values={},
                 port_operations={},
             )
@@ -285,18 +289,17 @@ def parse_definition_to_graph(project_id: str, source: str) -> tuple[dict[str, A
             node_order.append(variable_name)
 
             inputs = definition.get("inputs", [])
-            if definition.get("frontend_preset") == "number-slider":
-                output_name = _primary_output_name(definition)
-                record.values[output_name] = definition.get("frontend_config", {}).get("value", 0.5)
+            if definition.get("component") == "NumberSlider":
+                record.settings["value"] = definition.get("settings_defaults", {}).get("value", 0.5)
                 if statement.value.args:
                     numeric = _safe_numeric(statement.value.args[0])
                     if numeric is not None:
-                        record.values[output_name] = numeric
+                        record.settings["value"] = numeric
                 for keyword in statement.value.keywords:
-                    if keyword.arg == output_name:
+                    if keyword.arg == "value":
                         numeric = _safe_numeric(keyword.value)
                         if numeric is not None:
-                            record.values[output_name] = numeric
+                            record.settings["value"] = numeric
                 _replace_node_payload(nodes, record)
                 continue
 
@@ -353,6 +356,7 @@ def parse_definition_to_graph(project_id: str, source: str) -> tuple[dict[str, A
                 },
                 "position": node["position"],
                 "previewEnabled": node["data"]["previewEnabled"],
+                "settings": node["data"]["settings"],
                 "values": node["data"]["values"],
                 "portOperations": node["data"]["portOperations"],
             }
@@ -420,6 +424,7 @@ def build_definition_import_payload(
     return {
         "graphId": project_id,
         "schemaVersion": 2,
+        "filename": output_path.name,
         "flow": {
             "nodes": nodes,
             "edges": edges,

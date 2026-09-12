@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import {
   addEdge,
   applyEdgeChanges,
@@ -21,22 +21,25 @@ import {
 } from "@xyflow/react";
 
 import { ContextMenu, ContextMenuItem } from "@/components/molecules/ContextMenu";
+import { CanvasActionBar } from "@/components/organisms/CanvasActionBar";
 import { ComponentBrowser } from "@/components/organisms/ComponentBrowser";
 import { CompiledCodeView } from "@/components/organisms/CompiledCodeView";
-import { GraphExportButton } from "@/components/organisms/GraphExportButton";
 import { ComponentNode } from "@/components/organisms/ComponentNode";
 import { ComponentSearch } from "@/components/organisms/ComponentSearch";
 import { GraphNodeContextMenu } from "@/components/organisms/GraphNodeContextMenu";
 import { WireEdge } from "@/components/organisms/WireEdge";
 import {
+  getInitialNodeSettings,
   getInitialNodeValues,
   useGraphEditor,
 } from "@/components/providers/GraphEditorProvider";
+import { useTheme } from "@/components/providers/ThemeProvider";
 import { alignGraphNodes, type NodeAlignment } from "@/lib/graph/alignment";
 import {
   BUILTIN_GRAPH_NODE_DEFINITIONS,
   type ComponentNodeData,
   type PortOperation,
+  type PanelTextAlignment,
   type PyhopperComponentDefinition,
 } from "@/lib/graph/types";
 
@@ -46,6 +49,17 @@ const SEARCH_BOX_HEIGHT = 290;
 const SEARCH_BOX_MARGIN = 8;
 const PASTE_OFFSET = 40;
 
+function panelInitialSize(definition: PyhopperComponentDefinition) {
+  const shortcutText = definition.initial_values?.text;
+  if (typeof shortcutText !== "string") {
+    return { width: 220, height: 180 };
+  }
+  return {
+    width: Math.min(280, Math.max(90, shortcutText.length * 8 + 28)),
+    height: 58,
+  };
+}
+
 type FlowClipboard = {
   nodes: Node<ComponentNodeData>[];
   edges: Edge[];
@@ -54,6 +68,20 @@ type FlowClipboard = {
 type ConnectGesture = {
   ctrlOrMeta: boolean;
   shift: boolean;
+};
+
+type PendingPlacement = {
+  definition: PyhopperComponentDefinition;
+  x: number;
+  y: number;
+};
+
+type PlacementGesture = PendingPlacement & {
+  dragging: boolean;
+  longPressTimer: number | null;
+  pointerId: number;
+  startX: number;
+  startY: number;
 };
 
 type NodeContextMenuState = {
@@ -80,15 +108,18 @@ const PORT_OPERATIONS: { op: PortOperation; label: string }[] = [
 ];
 
 export function PyhopperFlowCanvas() {
+  const { theme } = useTheme();
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const clipboardRef = useRef<FlowClipboard | null>(null);
   const connectGestureRef = useRef<ConnectGesture>({ ctrlOrMeta: false, shift: false });
+  const placementGestureRef = useRef<PlacementGesture | null>(null);
   const pasteCountRef = useRef(0);
   const restoredViewportRef = useRef(false);
   const [catalog, setCatalog] = useState<PyhopperComponentDefinition[]>(BUILTIN_GRAPH_NODE_DEFINITIONS);
   const [isCodeView, setIsCodeView] = useState(false);
   const [nodeContextMenu, setNodeContextMenu] = useState<NodeContextMenuState | null>(null);
   const [portContextMenu, setPortContextMenu] = useState<PortContextMenuState | null>(null);
+  const [pendingPlacement, setPendingPlacement] = useState<PendingPlacement | null>(null);
   const [reactFlow, setReactFlow] = useState<ReactFlowInstance<Node<ComponentNodeData>, Edge> | null>(null);
   const [searchState, setSearchState] = useState<{ isOpen: boolean; x: number; y: number }>({
     isOpen: false,
@@ -110,6 +141,7 @@ export function PyhopperFlowCanvas() {
     setViewport,
     viewport,
   } = useGraphEditor();
+  const isGrasshopperTheme = theme === "grasshopper";
 
   useEffect(() => {
     const controller = new AbortController();
@@ -353,6 +385,12 @@ export function PyhopperFlowCanvas() {
       }
 
       if (event.key === "Escape") {
+        const placementGesture = placementGestureRef.current;
+        if (placementGesture?.longPressTimer != null) {
+          window.clearTimeout(placementGesture.longPressTimer);
+        }
+        placementGestureRef.current = null;
+        setPendingPlacement(null);
         setNodeContextMenu(null);
         setPortContextMenu(null);
         setNodes((current) => current.map((node) => ({ ...node, selected: false })));
@@ -380,22 +418,20 @@ export function PyhopperFlowCanvas() {
           type: "component",
           position,
           style:
-            definition.frontend_preset === "panel"
-              ? {
-                  width: 220,
-                  height: 180,
-                }
+            definition.component === "Panel"
+              ? panelInitialSize(definition)
               : undefined,
           data: {
             definition,
             previewEnabled: true,
             previews: {},
+            settings: getInitialNodeSettings(definition),
             values: getInitialNodeValues(definition),
             portOperations: {},
           },
         },
       ]);
-      if (definition.frontend_preset !== "object-reference") {
+      if (definition.component !== "Object Reference") {
         requestRealtimeGeneration();
       }
     },
@@ -418,21 +454,101 @@ export function PyhopperFlowCanvas() {
     [addComponentNodeAt, closeSearch, searchState.x, searchState.y],
   );
 
-  const addComponentFromBrowser = useCallback(
-    (definition: PyhopperComponentDefinition) => {
-      if (!reactFlow || !canvasRef.current) {
+  const setPlacementPreview = useCallback(
+    (definition: PyhopperComponentDefinition, clientX: number, clientY: number) => {
+      const bounds = canvasRef.current?.getBoundingClientRect();
+      setPendingPlacement({
+        definition,
+        x: clientX - (bounds?.left ?? 0),
+        y: clientY - (bounds?.top ?? 0),
+      });
+    },
+    [],
+  );
+
+  const handlePlacementPointerDown = useCallback(
+    (definition: PyhopperComponentDefinition, event: ReactPointerEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const gesture: PlacementGesture = {
+        definition,
+        dragging: false,
+        longPressTimer: null,
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        x: event.clientX,
+        y: event.clientY,
+      };
+
+      gesture.longPressTimer = window.setTimeout(() => {
+        const activeGesture = placementGestureRef.current;
+        if (!activeGesture || activeGesture.pointerId !== event.pointerId) return;
+        activeGesture.dragging = true;
+        setPlacementPreview(activeGesture.definition, activeGesture.x, activeGesture.y);
+      }, 180);
+      placementGestureRef.current = gesture;
+    },
+    [setPlacementPreview],
+  );
+
+  const handlePlacementPointerMove = useCallback(
+    (definition: PyhopperComponentDefinition, event: ReactPointerEvent<HTMLButtonElement>) => {
+      const gesture = placementGestureRef.current;
+      if (!gesture || gesture.pointerId !== event.pointerId || gesture.definition !== definition) return;
+
+      gesture.x = event.clientX;
+      gesture.y = event.clientY;
+      if (Math.hypot(event.clientX - gesture.startX, event.clientY - gesture.startY) >= 5) {
+        gesture.dragging = true;
+        if (gesture.longPressTimer !== null) {
+          window.clearTimeout(gesture.longPressTimer);
+          gesture.longPressTimer = null;
+        }
+      }
+
+      if (gesture.dragging) {
+        setPlacementPreview(definition, event.clientX, event.clientY);
+      }
+    },
+    [setPlacementPreview],
+  );
+
+  const handlePlacementPointerUp = useCallback(
+    (definition: PyhopperComponentDefinition, event: ReactPointerEvent<HTMLButtonElement>) => {
+      const gesture = placementGestureRef.current;
+      if (!gesture || gesture.pointerId !== event.pointerId || gesture.definition !== definition) return;
+
+      if (gesture.longPressTimer !== null) {
+        window.clearTimeout(gesture.longPressTimer);
+      }
+      placementGestureRef.current = null;
+
+      if (gesture.dragging) {
+        const bounds = canvasRef.current?.getBoundingClientRect();
+        const releaseElement = document.elementFromPoint(event.clientX, event.clientY);
+        const releasedOverBrowser = Boolean(releaseElement?.closest(".component-browser"));
+        const isInsideCanvas =
+          bounds &&
+          event.clientX >= bounds.left &&
+          event.clientX <= bounds.right &&
+          event.clientY >= bounds.top &&
+          event.clientY <= bounds.bottom;
+        if (isInsideCanvas && !releasedOverBrowser) {
+          addComponentNodeAt(definition, { x: event.clientX, y: event.clientY });
+          setPendingPlacement(null);
+        } else if (releasedOverBrowser) {
+          setPlacementPreview(definition, event.clientX, event.clientY);
+        } else {
+          setPendingPlacement(null);
+        }
         return;
       }
 
-      const bounds = canvasRef.current.getBoundingClientRect();
-      const center = {
-        x: bounds.left + bounds.width / 2,
-        y: bounds.top + bounds.height / 2,
-      };
-
-      addComponentNodeAt(definition, center);
+      setPlacementPreview(definition, event.clientX, event.clientY);
     },
-    [addComponentNodeAt, reactFlow],
+    [addComponentNodeAt, setPlacementPreview],
   );
 
   const alignSelectedNodes = useCallback(
@@ -452,6 +568,52 @@ export function PyhopperFlowCanvas() {
       requestRealtimeGeneration();
     },
     [nodeContextMenu, requestRealtimeGeneration, setNodePreviewEnabled],
+  );
+
+  const setPanelTextAlign = useCallback(
+    (alignment: PanelTextAlignment) => {
+      if (!nodeContextMenu || nodeContextMenu.nodeIds.length !== 1) return;
+      setNodes((current) =>
+        current.map((node) =>
+          node.id === nodeContextMenu.nodeIds[0]
+            ? {
+                ...node,
+                data: {
+                  ...node.data,
+                  values: { ...node.data.values, textAlign: alignment },
+                },
+              }
+            : node,
+        ),
+      );
+      setNodeContextMenu(null);
+    },
+    [nodeContextMenu, setNodes],
+  );
+
+  const setPanelMultilineData = useCallback(
+    (enabled: boolean) => {
+      if (!nodeContextMenu || nodeContextMenu.nodeIds.length !== 1) return;
+      const nodeId = nodeContextMenu.nodeIds[0];
+      if (edges.some((edge) => edge.target === nodeId)) return;
+
+      setNodes((current) =>
+        current.map((node) =>
+          node.id === nodeId
+            ? {
+                ...node,
+                data: {
+                  ...node.data,
+                  values: { ...node.data.values, multilineData: enabled },
+                },
+              }
+            : node,
+        ),
+      );
+      setNodeContextMenu(null);
+      requestRealtimeGeneration();
+    },
+    [edges, nodeContextMenu, requestRealtimeGeneration, setNodes],
   );
 
   useEffect(() => {
@@ -533,7 +695,13 @@ export function PyhopperFlowCanvas() {
   return (
     <div
       className="flow-canvas"
+      data-placing-component={pendingPlacement ? "true" : undefined}
       ref={canvasRef}
+      onPointerMove={(event) => {
+        if (pendingPlacement && !placementGestureRef.current) {
+          setPlacementPreview(pendingPlacement.definition, event.clientX, event.clientY);
+        }
+      }}
       onContextMenu={(event) => {
         event.preventDefault();
         setNodeContextMenu(null);
@@ -546,8 +714,29 @@ export function PyhopperFlowCanvas() {
         openSearchAt(event.clientX - bounds.left, event.clientY - bounds.top);
       }}
     >
-      {!isCodeView ? <ComponentBrowser components={catalog} onSelect={addComponentFromBrowser} /> : null}
-      <GraphExportButton isCodeView={isCodeView} onToggleCodeView={() => setIsCodeView((current) => !current)} />
+      {!isCodeView ? (
+        <ComponentBrowser
+          components={catalog}
+          onPlacementPointerDown={handlePlacementPointerDown}
+          onPlacementPointerMove={handlePlacementPointerMove}
+          onPlacementPointerUp={handlePlacementPointerUp}
+        />
+      ) : null}
+      {pendingPlacement ? (
+        <div
+          className="component-placement-preview"
+          style={{
+            left: pendingPlacement.x,
+            top: pendingPlacement.y,
+          }}
+        >
+          {pendingPlacement.definition.component}
+        </div>
+      ) : null}
+      <CanvasActionBar
+        isCodeView={isCodeView}
+        onToggleCodeView={() => setIsCodeView((current) => !current)}
+      />
       {!isCodeView ? (
         <>
           <ComponentSearch
@@ -623,7 +812,15 @@ export function PyhopperFlowCanvas() {
                 y: event.clientY - bounds.top,
               });
             }}
-            onPaneClick={() => {
+            onPaneClick={(event) => {
+              if (pendingPlacement) {
+                addComponentNodeAt(pendingPlacement.definition, {
+                  x: event.clientX,
+                  y: event.clientY,
+                });
+                setPendingPlacement(null);
+                return;
+              }
               setNodeContextMenu(null);
               setPortContextMenu(null);
               if (searchState.isOpen) {
@@ -635,20 +832,20 @@ export function PyhopperFlowCanvas() {
           >
             <MiniMap
               className="flow-minimap"
-              maskColor="rgba(216, 224, 228, 0.72)"
+              maskColor={isGrasshopperTheme ? "rgba(209, 206, 197, 0.72)" : "rgba(216, 224, 228, 0.72)"}
               nodeBorderRadius={2}
-              nodeColor="#8c9aa0"
-              nodeStrokeColor="#30464f"
+              nodeColor={isGrasshopperTheme ? "#d9d9d6" : "#8c9aa0"}
+              nodeStrokeColor={isGrasshopperTheme ? "#5d5d5b" : "#30464f"}
               pannable
               position="bottom-left"
               zoomable
             />
             <Background
-              color="#6b7378"
-              gap={20}
+              color={isGrasshopperTheme ? "#adaaa1" : "#6b7378"}
+              gap={isGrasshopperTheme ? 96 : 20}
               lineWidth={1}
               size={0.8}
-              variant={BackgroundVariant.Dots}
+              variant={isGrasshopperTheme ? BackgroundVariant.Lines : BackgroundVariant.Dots}
             />
           </ReactFlow>
           {portContextMenu ? (
@@ -675,9 +872,12 @@ export function PyhopperFlowCanvas() {
           ) : null}
           {nodeContextMenu ? (
             <GraphNodeContextMenu
+              edges={edges}
               nodeIds={nodeContextMenu.nodeIds}
               nodes={nodes}
               onAlign={alignSelectedNodes}
+              onPanelMultilineDataChange={setPanelMultilineData}
+              onPanelTextAlign={setPanelTextAlign}
               onPreviewChange={setSelectedPreview}
               submenuSide={nodeContextMenu.submenuSide}
               x={nodeContextMenu.x}

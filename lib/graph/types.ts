@@ -37,19 +37,24 @@ export type PyhopperComponentDefinition = {
   category: string;
   component: string;
   description: string;
-  frontend_preset?: string | null;
-  frontend_config?: {
-    min?: number;
-    max?: number;
-    step?: number;
-    decimals?: number;
-    value?: number;
-  } | null;
+  settings_schema?: Record<string, PyhopperComponentSetting>;
+  settings_defaults?: Record<string, unknown>;
+  initial_settings?: Record<string, unknown>;
+  initial_values?: Record<string, unknown>;
   input_count: number;
   output_count: number;
   variadic_inputs?: boolean;
   inputs: PyhopperComponentPort[];
   outputs: PyhopperComponentPort[];
+};
+
+export type PyhopperComponentSetting = {
+  choices?: string[];
+  default?: unknown;
+  label?: string;
+  max?: number;
+  min?: number;
+  type: "bool" | "choice" | "float" | "int" | "string";
 };
 
 export type DataTreePreviewItem = {
@@ -78,9 +83,13 @@ export type ComponentNodeData = {
   definition: PyhopperComponentDefinition;
   previewEnabled: boolean;
   previews: Record<string, NodePreviewValue>;
+  settings: Record<string, unknown>;
   values: Record<string, unknown>;
   portOperations: Record<string, PortOperation>;
 };
+
+export type GraphMapperType = "linear" | "bezier" | "sine" | "gaussian";
+export type PanelTextAlignment = "left" | "center" | "right";
 
 export const OBJECT_REFERENCE_DEFINITION: PyhopperComponentDefinition = {
   component_key: "pyhopper.scene.ObjectReference",
@@ -88,7 +97,6 @@ export const OBJECT_REFERENCE_DEFINITION: PyhopperComponentDefinition = {
   category: "Scene",
   component: "Object Reference",
   description: "Reference a durable authored scene object by id.",
-  frontend_preset: "object-reference",
   input_count: 0,
   output_count: 1,
   inputs: [],
@@ -119,6 +127,7 @@ export type ComponentGraphNode = {
     y: number;
   };
   previewEnabled: boolean;
+  settings?: Record<string, unknown>;
   values: Record<string, unknown>;
   portOperations: Record<string, PortOperation>;
 };

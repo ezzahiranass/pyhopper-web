@@ -1,13 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type PointerEvent } from "react";
 
 import { TabbedCatalog } from "@/components/organisms/TabbedCatalog";
 import type { PyhopperComponentDefinition } from "@/lib/graph/types";
 
 type ComponentBrowserProps = {
   components: PyhopperComponentDefinition[];
-  onSelect: (definition: PyhopperComponentDefinition) => void;
+  onPlacementPointerDown: (definition: PyhopperComponentDefinition, event: PointerEvent<HTMLButtonElement>) => void;
+  onPlacementPointerMove: (definition: PyhopperComponentDefinition, event: PointerEvent<HTMLButtonElement>) => void;
+  onPlacementPointerUp: (definition: PyhopperComponentDefinition, event: PointerEvent<HTMLButtonElement>) => void;
 };
 
 type CategoryGroup = {
@@ -15,7 +17,12 @@ type CategoryGroup = {
   components: PyhopperComponentDefinition[];
 };
 
-export function ComponentBrowser({ components, onSelect }: ComponentBrowserProps) {
+export function ComponentBrowser({
+  components,
+  onPlacementPointerDown,
+  onPlacementPointerMove,
+  onPlacementPointerUp,
+}: ComponentBrowserProps) {
   const tabs = useMemo(() => Array.from(new Set(components.map((item) => item.tab))), [components]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
 
@@ -52,7 +59,9 @@ export function ComponentBrowser({ components, onSelect }: ComponentBrowserProps
         items: group.components.map((definition) => ({
           id: `${definition.tab}-${definition.category}-${definition.component}`,
           label: definition.component,
-          onSelect: () => onSelect(definition),
+          onPointerDown: (event) => onPlacementPointerDown(definition, event),
+          onPointerMove: (event) => onPlacementPointerMove(definition, event),
+          onPointerUp: (event) => onPlacementPointerUp(definition, event),
         })),
         title: group.category,
       }))}

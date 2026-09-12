@@ -6,6 +6,7 @@ import { ChatComposer } from "@/components/organisms/ChatComposer";
 import { ChatHeader } from "@/components/organisms/ChatHeader";
 import { ChatHistoryPanel } from "@/components/organisms/ChatHistoryPanel";
 import { ChatTranscript } from "@/components/organisms/ChatTranscript";
+import { FloatingActionPanel } from "@/components/molecules/FloatingActionPanel";
 import type { ChatMessage, ChatSession } from "@/lib/chat/chatStorage";
 
 type ChatWindowProps = {
@@ -72,44 +73,39 @@ export function ChatWindow({
   onViewChange,
 }: ChatWindowProps) {
   return (
-    <div className="chat-window">
-      <ChatHeader meta={assistantMeta} onClose={onClose} />
-
-      <div aria-label="Assistant views" className="chat-tabs" role="tablist">
-        {(["chat", "history"] as const).map((tab) => (
-          <button
-            aria-selected={view === tab}
-            className={`chat-tab${view === tab ? " chat-tab--active" : ""}`}
-            key={tab}
-            onClick={() => onViewChange(tab)}
-            role="tab"
-            type="button"
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
+    <FloatingActionPanel className="chat-window">
+      <ChatHeader
+        meta={assistantMeta}
+        onClose={onClose}
+        onNewChat={onNewChat}
+        onShowHistory={() => onViewChange("history")}
+      />
 
       {view === "history" ? (
-        <ChatHistoryPanel
-          activeId={activeId}
-          editTitle={editTitle}
-          editingId={editingId}
-          hasSessions={hasSessions}
-          confirmDeleteId={confirmDeleteId}
-          onDelete={onDelete}
-          onDeleteConfirmChange={onDeleteConfirmChange}
-          onEditTitleChange={onEditTitleChange}
-          onRenameCancel={onRenameCancel}
-          onRenameStart={onRenameStart}
-          onRenameSubmit={onRenameSubmit}
-          onSearchChange={onSearchChange}
-          onSelect={onSelect}
-          onNewChat={onNewChat}
-          search={search}
-          searchRef={searchRef}
-          sessions={filteredSessions}
-        />
+        <>
+          <button className="chat-back" onClick={() => onViewChange("chat")} type="button">
+            Back to conversation
+          </button>
+          <ChatHistoryPanel
+            activeId={activeId}
+            editTitle={editTitle}
+            editingId={editingId}
+            hasSessions={hasSessions}
+            confirmDeleteId={confirmDeleteId}
+            onDelete={onDelete}
+            onDeleteConfirmChange={onDeleteConfirmChange}
+            onEditTitleChange={onEditTitleChange}
+            onRenameCancel={onRenameCancel}
+            onRenameStart={onRenameStart}
+            onRenameSubmit={onRenameSubmit}
+            onSearchChange={onSearchChange}
+            onSelect={onSelect}
+            onNewChat={onNewChat}
+            search={search}
+            searchRef={searchRef}
+            sessions={filteredSessions}
+          />
+        </>
       ) : (
         <>
           <ChatTranscript messages={messages} messagesEndRef={messagesEndRef} typing={typing} />
@@ -123,6 +119,6 @@ export function ChatWindow({
           />
         </>
       )}
-    </div>
+    </FloatingActionPanel>
   );
 }

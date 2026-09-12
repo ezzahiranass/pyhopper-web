@@ -12,7 +12,6 @@ import { SplitPaneDivider } from "@/components/atoms/SplitPaneDivider";
 import { CanvasPanel } from "@/components/organisms/CanvasPanel";
 import type { PanelLayout } from "@/components/organisms/FloatingPanel";
 import { GraphEditorProvider } from "@/components/providers/GraphEditorProvider";
-import { ProjectChat } from "@/components/templates/ProjectChat";
 import { SceneCanvas } from "@/components/templates/SceneCanvas";
 import { PyhopperFlowCanvas } from "@/components/templates/PyhopperFlowCanvas";
 
@@ -83,7 +82,6 @@ export function StudioWorkspace({ projectId }: { projectId: string }) {
             valueNow={splitPosition}
           />
         ) : null}
-        <ProjectChat />
       </main>
     </GraphEditorProvider>
   );

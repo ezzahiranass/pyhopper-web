@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { OrbitControls } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import { MOUSE } from "three";
+import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
 import { ViewportBoxSelection } from "@/components/organisms/ViewportBoxSelection";
 import { DefinitionsPanel } from "@/components/organisms/DefinitionsPanel";
+import { ViewportOrientationGizmo } from "@/components/organisms/ViewportOrientationGizmo";
 import { ViewportScene } from "@/components/organisms/ViewportScene";
 import { ViewportSidebar } from "@/components/organisms/ViewportSidebar";
 import { ViewportToolbar } from "@/components/organisms/ViewportToolbar";
@@ -19,16 +21,23 @@ import { useThemeToken } from "@/lib/theme/useThemeToken";
 
 function ViewportControls() {
   const { activeTool } = useViewportTool();
+  const controlsRef = useRef<OrbitControlsImpl>(null);
+  const enabled = activeTool === "select";
+
   return (
-    <OrbitControls
-      dampingFactor={0.08}
-      enabled={activeTool === "select"}
-      enableDamping
-      makeDefault
-      maxDistance={42}
-      minDistance={6}
-      mouseButtons={{ LEFT: undefined, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.ROTATE }}
-    />
+    <>
+      <OrbitControls
+        dampingFactor={0.08}
+        enabled={enabled}
+        enableDamping
+        makeDefault
+        maxDistance={42}
+        minDistance={6}
+        mouseButtons={{ LEFT: undefined, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.ROTATE }}
+        ref={controlsRef}
+      />
+      <ViewportOrientationGizmo controlsRef={controlsRef} enabled={enabled} />
+    </>
   );
 }
 

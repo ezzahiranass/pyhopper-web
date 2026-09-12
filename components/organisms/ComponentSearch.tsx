@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 
 import { SearchPalette } from "@/components/organisms/SearchPalette";
+import { buildPanelSearchDefinition } from "@/lib/graph/panelSearch";
 import { buildSliderSearchDefinition } from "@/lib/graph/sliderSearch";
 import type { PyhopperComponentDefinition } from "@/lib/graph/types";
 
@@ -45,7 +46,6 @@ function componentSearchScore(definition: PyhopperComponentDefinition, query: st
       fieldMatchScore(definition.tab, term, 120),
       fieldMatchScore(definition.category, term, 120),
       fieldMatchScore(definition.component_key, term, 80),
-      fieldMatchScore(definition.frontend_preset ?? "", term, 80),
     );
     const termScore = Math.max(nameScore, descriptionScore, portScore, metadataScore);
 
@@ -76,16 +76,17 @@ export function ComponentSearch({
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const numberSliderDefinition = useMemo(
-    () =>
-      components.find(
-        (definition) =>
-          definition.component === "NumberSlider" && definition.frontend_preset === "number-slider",
-      ),
+    () => components.find((definition) => definition.component === "NumberSlider"),
     [components],
   );
+  const panelDefinition = useMemo(() => components.find((definition) => definition.component === "Panel"), [components]);
   const sliderShortcutResult = useMemo(
     () => buildSliderSearchDefinition(query, numberSliderDefinition),
     [numberSliderDefinition, query],
+  );
+  const panelShortcutResult = useMemo(
+    () => buildPanelSearchDefinition(query, panelDefinition),
+    [panelDefinition, query],
   );
 
   const results = useMemo(() => {
@@ -107,19 +108,25 @@ export function ComponentSearch({
           )
           .map((result) => result.definition);
 
-    if (sliderShortcutResult) {
-      return [sliderShortcutResult, ...componentMatches];
-    }
-
-    return componentMatches;
-  }, [components, query, sliderShortcutResult]);
+    return [
+      ...(panelShortcutResult ? [panelShortcutResult] : []),
+      ...(sliderShortcutResult ? [sliderShortcutResult] : []),
+      ...componentMatches.filter(
+        (definition) =>
+          definition !== panelShortcutResult && definition !== sliderShortcutResult,
+      ),
+    ];
+  }, [components, panelShortcutResult, query, sliderShortcutResult]);
 
   const tooltipFor = (definition: PyhopperComponentDefinition) =>
     [
       `${definition.tab} > ${definition.category} > ${definition.component}`,
       definition.description,
-      definition.frontend_preset === "number-slider" && query.trim()
+      definition.component === "NumberSlider" && query.trim()
         ? `Slider syntax: ${query.trim()}`
+        : null,
+      definition.component === "Panel" && query.trimStart().startsWith("//")
+        ? `Panel text: ${query.trimStart().slice(2)}`
         : null,
       `${definition.variadic_inputs ? `${definition.input_count}+` : definition.input_count} in / ${definition.output_count} out`,
     ]
@@ -136,7 +143,7 @@ export function ComponentSearch({
       emptyLabel="No components match this query."
       isOpen={isOpen}
       items={results.map((definition) => ({
-        id: `${definition.tab}-${definition.category}-${definition.component}-${definition.frontend_config?.min ?? "base"}-${definition.frontend_config?.value ?? "base"}-${definition.frontend_config?.max ?? "base"}`,
+        id: `${definition.tab}-${definition.category}-${definition.component}-${definition.initial_settings?.min ?? "base"}-${definition.initial_settings?.value ?? "base"}-${definition.initial_settings?.max ?? "base"}-${definition.initial_values?.text ?? "base"}`,
         label: definition.component,
         metadata: `${definition.tab} > ${definition.category}`,
         title: tooltipFor(definition),

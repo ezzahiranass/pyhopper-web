@@ -1,5 +1,7 @@
 "use client";
 
+import type { PointerEvent } from "react";
+
 import { CatalogCard } from "@/components/molecules/CatalogCard";
 import { CatalogTabButton } from "@/components/molecules/CatalogTabButton";
 
@@ -11,7 +13,9 @@ type TabbedCatalogTab = {
 type TabbedCatalogItem = {
   id: string;
   label: string;
-  onSelect: () => void;
+  onPointerDown: (event: PointerEvent<HTMLButtonElement>) => void;
+  onPointerMove: (event: PointerEvent<HTMLButtonElement>) => void;
+  onPointerUp: (event: PointerEvent<HTMLButtonElement>) => void;
 };
 
 type TabbedCatalogGroup = {
@@ -58,7 +62,9 @@ export function TabbedCatalog({ activeTab, groups, onToggleTab, tabs }: TabbedCa
                       className="component-browser__card"
                       key={item.id}
                       label={item.label}
-                      onClick={item.onSelect}
+                      onPointerDown={item.onPointerDown}
+                      onPointerMove={item.onPointerMove}
+                      onPointerUp={item.onPointerUp}
                     />
                   ))}
                 </div>

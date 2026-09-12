@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# python bytecode + runtime exports
+__pycache__/
+*.pyc
+api/generated/*.glb

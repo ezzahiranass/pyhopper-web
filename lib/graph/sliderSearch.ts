@@ -29,10 +29,6 @@ function nextPowerOfTen(value: number) {
   return 10 ** (Math.floor(Math.log10(magnitude)) + 1);
 }
 
-function sliderStep(decimals: number) {
-  return decimals > 0 ? 10 ** (-decimals) : 1;
-}
-
 function sliderFromSingleValue(value: number, decimals: number) {
   const extent = nextPowerOfTen(value);
 
@@ -41,7 +37,6 @@ function sliderFromSingleValue(value: number, decimals: number) {
       min: 0,
       max: extent,
       value,
-      step: sliderStep(decimals),
       decimals,
     };
   }
@@ -50,7 +45,6 @@ function sliderFromSingleValue(value: number, decimals: number) {
     min: -extent,
     max: 0,
     value,
-    step: sliderStep(decimals),
     decimals,
   };
 }
@@ -63,7 +57,6 @@ function sliderFromRange(min: number, max: number, decimals: number) {
     min: lower,
     max: upper,
     value: lower,
-    step: sliderStep(decimals),
     decimals,
   };
 }
@@ -76,7 +69,6 @@ function sliderFromExplicitRange(min: number, value: number, max: number, decima
     min: lower,
     max: upper,
     value: Math.min(Math.max(value, lower), upper),
-    step: sliderStep(decimals),
     decimals,
   };
 }
@@ -101,7 +93,7 @@ export function buildSliderSearchDefinition(
 
     return {
       ...sliderDefinition,
-      frontend_config: sliderFromSingleValue(value, decimals),
+      initial_settings: sliderFromSingleValue(value, decimals),
     };
   }
 
@@ -113,7 +105,7 @@ export function buildSliderSearchDefinition(
 
     return {
       ...sliderDefinition,
-      frontend_config: sliderFromRange(min, max, decimals),
+      initial_settings: sliderFromRange(min, max, decimals),
     };
   }
 
@@ -123,7 +115,7 @@ export function buildSliderSearchDefinition(
 
     return {
       ...sliderDefinition,
-      frontend_config: sliderFromExplicitRange(min, value, max, decimals),
+      initial_settings: sliderFromExplicitRange(min, value, max, decimals),
     };
   }
 

@@ -3,47 +3,177 @@
   --theme-radius-card: 2px;
   --theme-radius-control: 2px;
   --theme-radius-chip: 2px;
-  --theme-viewport-bg: #7a96a8;
-  --theme-grid-line: #5b758a;
-  --theme-grid-opacity: 0.7;
-  --theme-glass-bg: rgba(200, 200, 192, 0.94);
-  --theme-glass-border: #3a3a36;
-  --theme-fg: #1a1a18;
-  --theme-muted: #4a4a44;
-  --theme-accent: #3a6db8;
+  --theme-viewport-bg: #9ba4aa;
+  --theme-canvas-bg: #d1cec5;
+  --theme-grid-line: #adaaa1;
+  --theme-grid-opacity: 0.58;
+  --theme-glass-bg: #ececea;
+  --theme-glass-border: #8f8f8a;
+  --theme-fg: #101010;
+  --theme-muted: #565656;
+  --theme-accent: #2f65b7;
   --theme-accent-text: #ffffff;
-  --theme-accent-border: #3a3a36;
-  --theme-accent-warm: #7dd34a;
-  --theme-accent-warm-ghost: rgba(125, 211, 74, 0.35);
-  --theme-node-fill: #cfcfc7;
-  --theme-node-fill-flat: #cfcfc7;
-  --theme-node-border: #3a3a36;
-  --theme-node-strip: #dadad2;
-  --theme-node-strip-text: #1a1a18;
-  --theme-node-text: #1a1a18;
-  --theme-port-fill: #cfcfc7;
-  --theme-port-border: #3a3a36;
-  --theme-wire: #3a3a36;
-  --theme-dot: rgba(80, 80, 72, 0.35);
-  --theme-panel-yellow: #fff170;
-  --theme-panel-yellow-border: #7a6a10;
-  --theme-divider: #a8a89e;
-  --theme-input-bg: #ffffff;
-  --theme-chat-user-bg: #3a6db8;
-  --theme-chat-asst-bg: #ffffff;
-  --theme-action-bg: #ffffff;
-  --theme-menu-bg: #dcdcd4;
-  --theme-menu-border: #3a3a36;
-  --theme-menu-divider: #a8a89e;
-  --theme-menu-hover: rgba(58, 109, 184, 0.12);
-  --theme-menu-text: #1a1a18;
-  --theme-menu-muted: #4a4a44;
-  --theme-menu-chip: #dcdcd4;
-  --theme-slider-track: #e8e8e0;
-  --theme-slider-tick: #1a1a18;
-  --theme-code-bg: #1a1a18;
-  --theme-code-fg: #d4d4cf;
-  --theme-card-bg: #cfcfc7;
-  --theme-thumb-bg: #e8e8e0;
-  --theme-hud-bg: #c8c8c0;
+  --theme-accent-border: #285aa4;
+  --theme-accent-warm: #c03b2d;
+  --theme-accent-warm-ghost: rgba(192, 59, 45, 0.24);
+  --theme-node-fill: #d9d9d6;
+  --theme-node-fill-flat: #d9d9d6;
+  --theme-node-border: #5d5d5b;
+  --theme-node-strip: linear-gradient(90deg, #252525 0%, #3a3a3a 45%, #1d1d1d 100%);
+  --theme-node-strip-text: #ffffff;
+  --theme-node-text: #111111;
+  --theme-port-fill: #d6d6d4;
+  --theme-port-border: #121212;
+  --theme-wire: #111111;
+  --theme-dot: rgba(64, 64, 60, 0.28);
+  --theme-panel-yellow: #f5e670;
+  --theme-panel-yellow-border: #897c1c;
+  --theme-divider: #b9b8b2;
+  --theme-input-bg: #f4f4f3;
+  --theme-chat-user-bg: #d8e4f8;
+  --theme-chat-asst-bg: #f4f4f3;
+  --theme-action-bg: #efefed;
+  --theme-menu-bg: #eeeeec;
+  --theme-menu-border: #9a9a96;
+  --theme-menu-divider: #c7c7c2;
+  --theme-menu-hover: rgba(47, 101, 183, 0.1);
+  --theme-menu-text: #111111;
+  --theme-menu-muted: #5f5f5f;
+  --theme-menu-chip: #ddddda;
+  --theme-slider-track: linear-gradient(180deg, #f8f8f7 0%, #ddddda 100%);
+  --theme-slider-tick: #9c9c98;
+  --theme-code-bg: #1c1c1c;
+  --theme-code-fg: #deded8;
+  --theme-card-bg: #dededb;
+  --theme-thumb-bg: #e6e6e3;
+  --theme-hud-bg: #d7d8da;
+  --shadow-panel: 0 10px 22px rgba(0, 0, 0, 0.18);
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.32);
+  --shadow-elevated: 0 8px 18px rgba(0, 0, 0, 0.22);
+}
+
+:root[data-theme="grasshopper"] .flow-canvas {
+  background: var(--theme-canvas-bg);
+}
+
+:root[data-theme="grasshopper"] .context-menu,
+:root[data-theme="grasshopper"] .component-search,
+:root[data-theme="grasshopper"] .node-form {
+  border-color: #9a9a96;
+  background: #eeeeec;
+  backdrop-filter: none;
+}
+
+:root[data-theme="grasshopper"] .component-node {
+  border-color: var(--theme-node-border);
+  background: linear-gradient(180deg, #f3f3f2 0%, #dededc 48%, #c7c7c4 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    0 1px 1px rgba(0, 0, 0, 0.24);
+}
+
+:root[data-theme="grasshopper"] .component-node__body {
+  padding: 6px 10px;
+}
+
+:root[data-theme="grasshopper"] .component-node__title-wrap {
+  border-color: #494949;
+  background: var(--theme-node-strip);
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.16);
+}
+
+:root[data-theme="grasshopper"] .component-node__title {
+  color: var(--theme-node-strip-text);
+  font-weight: 700;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.38);
+}
+
+:root[data-theme="grasshopper"] .component-node__port-name {
+  color: #111111;
+  font-weight: 500;
+}
+
+:root[data-theme="grasshopper"] .flow-canvas .react-flow__handle {
+  border-color: #111111;
+  background: #111111;
+}
+
+:root[data-theme="grasshopper"] .flow-canvas .react-flow__handle::after {
+  width: 7px;
+  height: 7px;
+  border-color: #111111;
+  background: #d8d8d5;
+}
+
+:root[data-theme="grasshopper"] .wire-edge {
+  stroke: #111111;
+  stroke-width: 1.7px;
+}
+
+:root[data-theme="grasshopper"] .component-node--number-slider {
+  min-width: 254px;
+}
+
+:root[data-theme="grasshopper"] .component-node--number-slider .component-node__body--preset {
+  grid-template-columns: auto minmax(150px, 1fr);
+  padding: 0;
+}
+
+:root[data-theme="grasshopper"] .component-node--number-slider .component-node__center--slider {
+  gap: 0;
+}
+
+:root[data-theme="grasshopper"] .component-node--number-slider .component-node__title-wrap {
+  min-width: 96px;
+  padding: 5px 8px;
+  border-color: #656574;
+  background: linear-gradient(180deg, #c7c7d4 0%, #aaaabd 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.68);
+}
+
+:root[data-theme="grasshopper"] .component-node--number-slider .component-node__title {
+  color: #111111;
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-shadow: none;
+}
+
+:root[data-theme="grasshopper"] .component-node__slider {
+  min-width: 150px;
+  padding: 0 8px;
+  border-left: 1px solid #878787;
+  background: linear-gradient(180deg, #ededeb 0%, #d4d4d1 100%);
+}
+
+:root[data-theme="grasshopper"] .slider__root {
+  height: 26px;
+}
+
+:root[data-theme="grasshopper"] .slider__rail {
+  height: 1px;
+  background: #8f8f8d;
+}
+
+:root[data-theme="grasshopper"] .slider__tick {
+  height: 4px;
+  background: #a9a9a5;
+}
+
+:root[data-theme="grasshopper"] .slider__thumb {
+  width: 12px;
+  height: 12px;
+  border: 1px solid #111111;
+  background: #f7f7f5;
+  box-shadow: inset 0 1px 0 #ffffff;
+}
+
+:root[data-theme="grasshopper"] .slider__value {
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+:root[data-theme="grasshopper"] .component-node--panel {
+  border-color: #8a7d1f;
+  background: #f5e670;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.22);
 }
