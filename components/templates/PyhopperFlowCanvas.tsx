@@ -21,13 +21,14 @@ import {
 } from "@xyflow/react";
 
 import { AuthoredValuesForm } from "@/components/molecules/AuthoredValuesForm";
-import { ContextMenu, ContextMenuItem } from "@/components/molecules/ContextMenu";
+import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from "@/components/molecules/ContextMenu";
 import { CanvasActionBar } from "@/components/organisms/CanvasActionBar";
 import { ComponentBrowser } from "@/components/organisms/ComponentBrowser";
 import { CompiledCodeView } from "@/components/organisms/CompiledCodeView";
 import { ComponentNode } from "@/components/organisms/ComponentNode";
 import { ComponentSearch } from "@/components/organisms/ComponentSearch";
 import { GraphNodeContextMenu } from "@/components/organisms/GraphNodeContextMenu";
+import { PortLiteralEditor } from "@/components/organisms/PortLiteralEditor";
 import { WireEdge } from "@/components/organisms/WireEdge";
 import {
   getInitialNodeSettings,
@@ -36,6 +37,7 @@ import {
 } from "@/components/providers/GraphEditorProvider";
 import { useTheme } from "@/components/providers/ThemeProvider";
 import { alignGraphNodes, type NodeAlignment } from "@/lib/graph/alignment";
+import { isLiteralCapableInput } from "@/lib/graph/portLiterals";
 import { isSpecialComponent } from "@/lib/graph/specialComponents";
 import {
   BUILTIN_GRAPH_NODE_DEFINITIONS,
@@ -93,6 +95,13 @@ type AuthoredFormState = {
   y: number;
 };
 
+type PortLiteralState = {
+  nodeId: string;
+  portName: string;
+  x: number;
+  y: number;
+};
+
 type NodeContextMenuState = {
   nodeIds: string[];
   submenuSide: "left" | "right";
@@ -128,6 +137,7 @@ export function PyhopperFlowCanvas() {
   const [isCodeView, setIsCodeView] = useState(false);
   const [nodeContextMenu, setNodeContextMenu] = useState<NodeContextMenuState | null>(null);
   const [authoredForm, setAuthoredForm] = useState<AuthoredFormState | null>(null);
+  const [portLiteral, setPortLiteral] = useState<PortLiteralState | null>(null);
   const [portContextMenu, setPortContextMenu] = useState<PortContextMenuState | null>(null);
   const [pendingPlacement, setPendingPlacement] = useState<PendingPlacement | null>(null);
   const [reactFlow, setReactFlow] = useState<ReactFlowInstance<Node<ComponentNodeData>, Edge> | null>(null);
@@ -137,6 +147,7 @@ export function PyhopperFlowCanvas() {
     y: 80,
   });
   const {
+    clearNodeValue,
     edges,
     generatedPython,
     hasStoredSnapshot,
@@ -154,6 +165,14 @@ export function PyhopperFlowCanvas() {
     viewport,
   } = useGraphEditor();
   const authoredFormNode = authoredForm ? nodes.find((node) => node.id === authoredForm.nodeId) ?? null : null;
+  const portLiteralNode = portLiteral ? nodes.find((node) => node.id === portLiteral.nodeId) ?? null : null;
+  const portLiteralPort = portLiteralNode?.data.definition.inputs.find((input) => input.name === portLiteral?.portName) ?? null;
+  const portMenuNode = portContextMenu ? nodes.find((entry) => entry.id === portContextMenu.nodeId) ?? null : null;
+  const portMenuInput =
+    portContextMenu?.portKind === "input"
+      ? portMenuNode?.data.definition.inputs.find((input) => input.name === portContextMenu.portName) ?? null
+      : null;
+  const portMenuTakesLiteral = !!portMenuNode && !!portMenuInput && isLiteralCapableInput(portMenuNode.data.definition, portMenuInput);
   const isGrasshopperTheme = theme === "grasshopper";
 
   useEffect(() => {
@@ -851,6 +870,7 @@ export function PyhopperFlowCanvas() {
               setNodeContextMenu(null);
               setPortContextMenu(null);
               setAuthoredForm(null);
+              setPortLiteral(null);
               if (searchState.isOpen) {
                 closeSearch();
               }
@@ -878,8 +898,32 @@ export function PyhopperFlowCanvas() {
           </ReactFlow>
           {portContextMenu ? (
             <ContextMenu x={portContextMenu.x} y={portContextMenu.y}>
+              {portMenuTakesLiteral && portMenuNode ? (
+                <>
+                  <ContextMenuItem
+                    onClick={() => {
+                      setPortLiteral({ nodeId: portContextMenu.nodeId, portName: portContextMenu.portName, x: portContextMenu.x, y: portContextMenu.y });
+                      setPortContextMenu(null);
+                    }}
+                  >
+                    {portContextMenu.portName in portMenuNode.data.values ? "Edit Value…" : "Set Value…"}
+                  </ContextMenuItem>
+                  {portContextMenu.portName in portMenuNode.data.values ? (
+                    <ContextMenuItem
+                      onClick={() => {
+                        clearNodeValue(portContextMenu.nodeId, portContextMenu.portName);
+                        setPortContextMenu(null);
+                        requestRealtimeGeneration();
+                      }}
+                    >
+                      Clear Value
+                    </ContextMenuItem>
+                  ) : null}
+                  <ContextMenuSeparator />
+                </>
+              ) : null}
               {PORT_OPERATIONS.map(({ op, label }) => {
-                const node = nodes.find((entry) => entry.id === portContextMenu.nodeId);
+                const node = portMenuNode;
                 const opKey = `${portContextMenu.portKind}:${portContextMenu.portName}`;
                 const isActive = node?.data.portOperations[opKey] === op;
                 return (
@@ -912,6 +956,25 @@ export function PyhopperFlowCanvas() {
               x={nodeContextMenu.x}
               y={nodeContextMenu.y}
             />
+          ) : null}
+          {portLiteral && portLiteralNode && portLiteralPort ? (
+            <div className="authored-values" style={{ left: portLiteral.x, top: portLiteral.y }}>
+              <PortLiteralEditor
+                isWired={edges.some((edge) => edge.target === portLiteral.nodeId && edge.targetHandle === portLiteral.portName)}
+                onChange={(value) => {
+                  setNodeValue(portLiteral.nodeId, portLiteral.portName, value);
+                  requestRealtimeGeneration();
+                }}
+                onClear={() => {
+                  clearNodeValue(portLiteral.nodeId, portLiteral.portName);
+                  setPortLiteral(null);
+                  requestRealtimeGeneration();
+                }}
+                onClose={() => setPortLiteral(null)}
+                port={portLiteralPort}
+                value={portLiteralNode.data.values[portLiteral.portName]}
+              />
+            </div>
           ) : null}
           {authoredForm && authoredFormNode ? (
             <div className="authored-values" style={{ left: authoredForm.x, top: authoredForm.y }}>

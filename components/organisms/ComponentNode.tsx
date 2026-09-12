@@ -5,7 +5,8 @@ import { type NodeProps } from "@xyflow/react";
 import { GraphPortRow } from "@/components/molecules/GraphPortRow";
 import { renderSpecialNode } from "@/components/organisms/special-nodes/registry";
 import { useGraphEditor } from "@/components/providers/GraphEditorProvider";
-import { componentDisplayName, componentNickname, nodeTooltip, portTooltip, type ComponentNodeData } from "@/lib/graph/types";
+import { formatPortLiteral, isLiteralCapableInput, literalTypeOf } from "@/lib/graph/portLiterals";
+import { componentDisplayName, componentNickname, nodeTooltip, portTooltip, type ComponentNodeData, type PyhopperComponentPort } from "@/lib/graph/types";
 
 const PORT_OP_INITIAL: Record<string, string> = {
   Graft: "G",
@@ -18,10 +19,16 @@ const PORT_OP_INITIAL: Record<string, string> = {
 export function ComponentNode({ data, id, selected }: NodeProps) {
   const typedData = data as ComponentNodeData;
   const { definition } = typedData;
-  const { nodeTitleMode, nodes, setEdges, setNodes } = useGraphEditor();
+  const { edges, nodeTitleMode, nodes, setEdges, setNodes } = useGraphEditor();
   const title = nodeTitleMode === "nickname" ? componentNickname(definition) ?? componentDisplayName(definition) : componentDisplayName(definition);
   const inputLabel = (name: string, index: number) =>
     definition.variadic_inputs && index === definition.inputs.length - 1 ? `${name}...` : name;
+  const inputLiteral = (input: PyhopperComponentPort) => {
+    const type = literalTypeOf(input);
+    if (!type || !(input.name in typedData.values) || !isLiteralCapableInput(definition, input)) return undefined;
+    return formatPortLiteral(type, typedData.values[input.name]);
+  };
+  const isWired = (inputName: string) => edges.some((edge) => edge.target === id && edge.targetHandle === inputName);
 
   const handlePortContextMenu = (
     event: React.MouseEvent<HTMLElement>,
@@ -94,6 +101,8 @@ export function ComponentNode({ data, id, selected }: NodeProps) {
               key={`input-${input.name}`}
               kind="input"
               label={inputLabel(input.name, index)}
+              literal={inputLiteral(input)}
+              literalMuted={isWired(input.name)}
               onContextMenu={(event) => handlePortContextMenu(event, input.name, "input")}
               title={portTooltip(input)}
             />
