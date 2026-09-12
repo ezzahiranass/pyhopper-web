@@ -375,13 +375,14 @@
 	top: 8px;
 	left: 50%;
 	z-index: 15;
-	width: min(860px, calc(100% - 24px));
+	width: min(1080px, calc(100% - 24px));
 	transform: translateX(-50%);
 	pointer-events: none;
 }
 
 .component-browser__tabs {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
 	justify-content: center;
 	gap: 5px;
@@ -417,6 +418,39 @@
 	pointer-events: auto;
 }
 
+.component-browser__filter {
+	display: flex;
+	justify-content: center;
+	margin-bottom: 6px;
+}
+
+.component-browser__filter-input {
+	width: min(320px, 100%);
+	padding: 0.35rem 0.6rem;
+	border: 1px solid var(--theme-menu-border);
+	border-radius: var(--radius-control);
+	background: linear-gradient(var(--theme-menu-bg), var(--theme-menu-bg)), var(--background);
+	box-shadow: var(--shadow-soft);
+	color: var(--foreground);
+	font-size: 0.7rem;
+	outline: none;
+}
+
+.component-browser__filter-input:focus-visible {
+	border-color: var(--theme-accent-warm);
+	box-shadow: 0 0 0 2px var(--theme-accent-warm-ghost);
+}
+
+.component-browser__empty {
+	margin: 0;
+	padding: 10px 12px;
+	border: 1px solid var(--theme-menu-border);
+	border-radius: var(--radius-card);
+	background: linear-gradient(var(--theme-menu-bg), var(--theme-menu-bg)), var(--background);
+	color: var(--muted);
+	font-size: 0.7rem;
+}
+
 .component-browser__rail {
 	display: flex;
 	gap: 8px;
@@ -435,7 +469,10 @@
 }
 
 .component-browser__category {
-	flex: 0 0 min(240px, 54vw);
+	display: flex;
+	flex: 0 0 min(250px, 54vw);
+	flex-direction: column;
+	max-height: min(48vh, 440px);
 	border: 1px solid var(--theme-menu-border);
 	border-radius: var(--radius-card);
 	background: linear-gradient(var(--theme-menu-bg), var(--theme-menu-bg)), var(--background);
@@ -444,7 +481,16 @@
 	overflow: hidden;
 }
 
+.component-browser__category--wide {
+	flex-basis: min(500px, 90vw);
+}
+
 .component-browser__category-header {
+	display: flex;
+	flex: 0 0 auto;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 8px;
 	padding: 8px 10px 7px;
 	border-bottom: 1px solid var(--border-subtle);
 	background:
@@ -468,18 +514,28 @@
 	color: var(--accent);
 }
 
+.component-browser__category-count {
+	font-family: "JetBrains Mono", "Consolas", monospace;
+	font-size: 0.6rem;
+	font-variant-numeric: tabular-nums;
+	color: var(--muted);
+}
+
 .component-browser__grid {
 	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 1fr));
+	grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
 	gap: 6px;
 	padding: 8px;
+	overflow-y: auto;
+	scrollbar-width: thin;
 }
 
 .component-browser__card {
 	display: flex;
 	min-height: 34px;
 	align-items: center;
-	justify-content: flex-start;
+	justify-content: space-between;
+	gap: 6px;
 	padding: 7px 9px;
 	border: 1px solid var(--border-subtle);
 	border-radius: var(--radius-control);
@@ -503,12 +559,29 @@
 
 .component-browser__card-title {
 	display: block;
-	width: 100%;
+	flex: 1 1 auto;
+	min-width: 0;
 	font-family: "JetBrains Mono", "Consolas", monospace;
 	font-size: 0.7rem;
 	font-weight: 700;
 	line-height: 1.2;
 	color: var(--foreground);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.component-browser__card-nick {
+	flex: 0 0 auto;
+	max-width: 44%;
+	padding: 1px 5px;
+	border-radius: var(--radius-pill);
+	background: var(--surface-selected);
+	font-family: "JetBrains Mono", "Consolas", monospace;
+	font-size: 0.56rem;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	color: var(--muted);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;

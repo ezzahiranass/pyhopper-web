@@ -5,6 +5,7 @@ import type { PointerEvent } from "react";
 type CatalogCardProps = {
   className?: string;
   label: string;
+  nickname?: string;
   onPointerDown: (event: PointerEvent<HTMLButtonElement>) => void;
   onPointerMove: (event: PointerEvent<HTMLButtonElement>) => void;
   onPointerUp: (event: PointerEvent<HTMLButtonElement>) => void;
@@ -13,6 +14,7 @@ type CatalogCardProps = {
 export function CatalogCard({
   className,
   label,
+  nickname,
   onPointerDown,
   onPointerMove,
   onPointerUp,
@@ -37,6 +39,7 @@ export function CatalogCard({
       type="button"
     >
       <span className="component-browser__card-title">{label}</span>
+      {nickname ? <span className="component-browser__card-nick">{nickname}</span> : null}
     </button>
   );
 }
