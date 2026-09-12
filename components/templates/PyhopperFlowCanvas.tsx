@@ -35,6 +35,7 @@ import {
 } from "@/components/providers/GraphEditorProvider";
 import { useTheme } from "@/components/providers/ThemeProvider";
 import { alignGraphNodes, type NodeAlignment } from "@/lib/graph/alignment";
+import { isSpecialComponent } from "@/lib/graph/specialComponents";
 import {
   BUILTIN_GRAPH_NODE_DEFINITIONS,
   componentDisplayName,
@@ -428,7 +429,7 @@ export function PyhopperFlowCanvas() {
           type: "component",
           position,
           style:
-            definition.component === "Panel"
+            isSpecialComponent(definition, "panel")
               ? panelInitialSize(definition)
               : undefined,
           data: {
@@ -441,7 +442,7 @@ export function PyhopperFlowCanvas() {
           },
         },
       ]);
-      if (definition.component !== "Object Reference") {
+      if (!isSpecialComponent(definition, "objectReference")) {
         requestRealtimeGeneration();
       }
     },

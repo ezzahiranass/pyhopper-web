@@ -7,6 +7,8 @@ import { GraphHandle } from "@/components/atoms/GraphHandle";
 import { PortOperationBadge } from "@/components/molecules/PortOperationBadge";
 
 type GraphPortRowProps = {
+  /** Grasshopper access of the port (item / list / tree); drawn as a subtle handle hint. */
+  access?: string;
   badge?: string;
   handleClassName: string;
   handleId: string;
@@ -18,6 +20,7 @@ type GraphPortRowProps = {
 };
 
 export function GraphPortRow({
+  access,
   badge,
   handleClassName,
   handleId,
@@ -32,6 +35,7 @@ export function GraphPortRow({
   return (
     <div
       className={`component-node__port-row component-node__port-row--${kind}`}
+      data-access={access ?? undefined}
       onContextMenu={onContextMenu}
       title={title}
     >
@@ -46,7 +50,7 @@ export function GraphPortRow({
           />
           {label ? (
             <p className="component-node__port-name">
-              {label}
+              <span className="component-node__port-label">{label}</span>
               {badge ? <PortOperationBadge value={badge} /> : null}
             </p>
           ) : null}
@@ -56,7 +60,7 @@ export function GraphPortRow({
           {label ? (
             <p className="component-node__port-name">
               {badge ? <PortOperationBadge value={badge} /> : null}
-              {label}
+              <span className="component-node__port-label">{label}</span>
             </p>
           ) : null}
           <GraphHandle

@@ -5,7 +5,7 @@ import { NodeResizer, Position } from "@xyflow/react";
 
 import { GraphHandle } from "@/components/atoms/GraphHandle";
 import { useGraphEditor } from "@/components/providers/GraphEditorProvider";
-import { portTooltip, type ComponentNodeData, type NodePreviewValue, type PanelTextAlignment } from "@/lib/graph/types";
+import { componentDisplayName, portTooltip, type ComponentNodeData, type NodePreviewValue, type PanelTextAlignment } from "@/lib/graph/types";
 
 type PanelNodeProps = {
   data: ComponentNodeData;
@@ -88,7 +88,7 @@ export function PanelNode({ data, id, onContextMenu, title }: PanelNodeProps) {
             type="target"
           />
           <div className="component-node__panel-titlebar">
-            <h3 className="component-node__panel-title">{data.definition.component}</h3>
+            <h3 className="component-node__panel-title">{componentDisplayName(data.definition)}</h3>
           </div>
 
           <div

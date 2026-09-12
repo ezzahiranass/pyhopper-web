@@ -25,6 +25,7 @@ import {
   ContextMenuSeparator,
   ContextMenuSubmenu,
 } from "@/components/molecules/ContextMenu";
+import { isSpecialComponent } from "@/lib/graph/specialComponents";
 import type { NodeAlignment } from "@/lib/graph/alignment";
 import type { ComponentNodeData } from "@/lib/graph/types";
 import type { PanelTextAlignment } from "@/lib/graph/types";
@@ -59,7 +60,7 @@ export function GraphNodeContextMenu({
   const previewEnabled = targetNodes.every((node) => node.data.previewEnabled);
   const canAlign = targetNodes.length > 1;
   const panelNode =
-    targetNodes.length === 1 && targetNodes[0].data.definition.component === "Panel"
+    targetNodes.length === 1 && isSpecialComponent(targetNodes[0].data.definition, "panel")
       ? targetNodes[0]
       : null;
   const panelHasIncomingData = panelNode

@@ -5,7 +5,7 @@ import { type NodeProps } from "@xyflow/react";
 import { GraphPortRow } from "@/components/molecules/GraphPortRow";
 import { renderSpecialNode } from "@/components/organisms/special-nodes/registry";
 import { useGraphEditor } from "@/components/providers/GraphEditorProvider";
-import { componentDisplayName, nodeTooltip, portTooltip, type ComponentNodeData } from "@/lib/graph/types";
+import { componentDisplayName, componentNickname, nodeTooltip, portTooltip, type ComponentNodeData } from "@/lib/graph/types";
 
 const PORT_OP_INITIAL: Record<string, string> = {
   Graft: "G",
@@ -18,7 +18,8 @@ const PORT_OP_INITIAL: Record<string, string> = {
 export function ComponentNode({ data, id, selected }: NodeProps) {
   const typedData = data as ComponentNodeData;
   const { definition } = typedData;
-  const { nodes, setEdges, setNodes } = useGraphEditor();
+  const { nodeTitleMode, nodes, setEdges, setNodes } = useGraphEditor();
+  const title = nodeTitleMode === "nickname" ? componentNickname(definition) ?? componentDisplayName(definition) : componentDisplayName(definition);
   const inputLabel = (name: string, index: number) =>
     definition.variadic_inputs && index === definition.inputs.length - 1 ? `${name}...` : name;
 
@@ -86,6 +87,7 @@ export function ComponentNode({ data, id, selected }: NodeProps) {
         <div className="component-node__ports component-node__ports--left">
           {definition.inputs.map((input, index) => (
             <GraphPortRow
+              access={input.access}
               badge={typedData.portOperations[`input:${input.name}`] ? PORT_OP_INITIAL[typedData.portOperations[`input:${input.name}`]] : undefined}
               handleClassName="component-node__handle component-node__handle--target"
               handleId={input.name}
@@ -100,13 +102,14 @@ export function ComponentNode({ data, id, selected }: NodeProps) {
 
         <div className="component-node__center">
           <div className="component-node__title-wrap">
-            <h3 className="component-node__title">{componentDisplayName(definition)}</h3>
+            <h3 className="component-node__title">{title}</h3>
           </div>
         </div>
 
         <div className="component-node__ports component-node__ports--right">
           {definition.outputs.map((output) => (
             <GraphPortRow
+              access={output.access}
               badge={typedData.portOperations[`output:${output.name}`] ? PORT_OP_INITIAL[typedData.portOperations[`output:${output.name}`]] : undefined}
               handleClassName="component-node__handle component-node__handle--source"
               handleId={output.name}

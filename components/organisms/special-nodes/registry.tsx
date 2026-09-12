@@ -9,6 +9,7 @@ import { NumberSliderNode } from "@/components/organisms/special-nodes/NumberSli
 import { ObjectReferenceNode } from "@/components/organisms/special-nodes/ObjectReferenceNode";
 import { PanelNode } from "@/components/organisms/special-nodes/PanelNode";
 import { PointOnCurveNode } from "@/components/organisms/special-nodes/PointOnCurveNode";
+import { specialComponentOf, type SpecialComponent } from "@/lib/graph/specialComponents";
 import type { ComponentNodeData, PyhopperComponentDefinition } from "@/lib/graph/types";
 
 export type SpecialNodeProps = {
@@ -18,20 +19,17 @@ export type SpecialNodeProps = {
   title?: string;
 };
 
-function normalizeComponentName(name: string) {
-  return name.replace(/[^a-zA-Z0-9]+/g, "").toLowerCase();
-}
-
-const SPECIAL_NODE_BY_COMPONENT_NAME: Record<string, (props: SpecialNodeProps) => ReactNode> = {
-  booleantoggle: (props) => <BooleanToggleNode {...props} />,
-  graphmapper: (props) => <GraphMapperNode {...props} />,
-  mdslider: (props) => <MDSliderNode {...props} />,
-  numberslider: (props) => <NumberSliderNode {...props} />,
-  objectreference: (props) => <ObjectReferenceNode {...props} />,
+const SPECIAL_NODE_RENDERERS: Record<SpecialComponent, (props: SpecialNodeProps) => ReactNode> = {
+  booleanToggle: (props) => <BooleanToggleNode {...props} />,
+  graphMapper: (props) => <GraphMapperNode {...props} />,
+  mdSlider: (props) => <MDSliderNode {...props} />,
+  numberSlider: (props) => <NumberSliderNode {...props} />,
+  objectReference: (props) => <ObjectReferenceNode {...props} />,
   panel: (props) => <PanelNode {...props} />,
-  pointoncurve: (props) => <PointOnCurveNode {...props} />,
+  pointOnCurve: (props) => <PointOnCurveNode {...props} />,
 };
 
 export function renderSpecialNode(definition: PyhopperComponentDefinition, props: SpecialNodeProps) {
-  return SPECIAL_NODE_BY_COMPONENT_NAME[normalizeComponentName(definition.component)]?.(props) ?? null;
+  const special = specialComponentOf(definition);
+  return special ? SPECIAL_NODE_RENDERERS[special](props) : null;
 }
