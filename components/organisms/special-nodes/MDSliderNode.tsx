@@ -4,6 +4,7 @@ import type { PointerEvent } from "react";
 
 import { GraphPortRow } from "@/components/molecules/GraphPortRow";
 import { useGraphEditor } from "@/components/providers/GraphEditorProvider";
+import { authoredDefaults } from "@/lib/graph/authoredValues";
 import { portTooltip, type ComponentNodeData } from "@/lib/graph/types";
 
 type MDSliderNodeProps = {
@@ -19,14 +20,16 @@ function numberValue(value: unknown, fallback: number) {
 
 export function MDSliderNode({ data, id, onContextMenu, title }: MDSliderNodeProps) {
   const { requestRealtimeGeneration, setNodeValue } = useGraphEditor();
-  const config = data.definition.settings_defaults ?? {};
+  // the pad's range and precision are node settings; the handle position is authored
+  const config = { ...(data.definition.settings_defaults ?? {}), ...data.settings };
+  const defaults = authoredDefaults(data.definition);
   const xMin = numberValue(config.x_min, 0);
   const xMax = numberValue(config.x_max, 1);
   const yMin = numberValue(config.y_min, 0);
   const yMax = numberValue(config.y_max, 1);
   const decimals = numberValue(config.decimals, 2);
-  const x = numberValue(data.values.x, numberValue(config.x, 0.5));
-  const y = numberValue(data.values.y, numberValue(config.y, 0.5));
+  const x = numberValue(data.values.x, numberValue(defaults.x, 0.5));
+  const y = numberValue(data.values.y, numberValue(defaults.y, 0.5));
   const xRatio = (x - xMin) / Math.max(xMax - xMin, Number.EPSILON);
   const yRatio = (y - yMin) / Math.max(yMax - yMin, Number.EPSILON);
   const output = data.definition.outputs[0];

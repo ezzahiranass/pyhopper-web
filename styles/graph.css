@@ -1175,6 +1175,26 @@
 	-moz-appearance: textfield;
 }
 
+.node-form__textarea {
+	resize: vertical;
+	min-height: 40px;
+	font-family: "JetBrains Mono", "Consolas", monospace;
+	line-height: 1.35;
+}
+
+/* the generic authored-values editor floats on the canvas where the menu was opened */
+.authored-values {
+	position: absolute;
+	z-index: 24;
+	width: 250px;
+	pointer-events: auto;
+}
+
+.authored-values .node-form {
+	position: static;
+	width: 100%;
+}
+
 .node-form__input[type="number"]::-webkit-inner-spin-button,
 .node-form__input[type="number"]::-webkit-outer-spin-button {
 	margin: 0;

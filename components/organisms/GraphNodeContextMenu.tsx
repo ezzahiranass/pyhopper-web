@@ -17,6 +17,7 @@ import {
   Eye,
   EyeOff,
   ListTree,
+  SlidersHorizontal,
 } from "lucide-react";
 
 import {
@@ -25,6 +26,7 @@ import {
   ContextMenuSeparator,
   ContextMenuSubmenu,
 } from "@/components/molecules/ContextMenu";
+import { hasAuthoredValues } from "@/lib/graph/authoredValues";
 import { isSpecialComponent } from "@/lib/graph/specialComponents";
 import type { NodeAlignment } from "@/lib/graph/alignment";
 import type { ComponentNodeData } from "@/lib/graph/types";
@@ -35,6 +37,7 @@ type GraphNodeContextMenuProps = {
   nodes: Node<ComponentNodeData>[];
   edges: Edge[];
   onAlign: (alignment: NodeAlignment) => void;
+  onEditValues: () => void;
   onPanelMultilineDataChange: (enabled: boolean) => void;
   onPreviewChange: (enabled: boolean) => void;
   onPanelTextAlign: (alignment: PanelTextAlignment) => void;
@@ -48,6 +51,7 @@ export function GraphNodeContextMenu({
   nodes,
   edges,
   onAlign,
+  onEditValues,
   onPanelMultilineDataChange,
   onPreviewChange,
   onPanelTextAlign,
@@ -59,6 +63,12 @@ export function GraphNodeContextMenu({
   const targetNodes = nodes.filter((node) => selectedIds.has(node.id));
   const previewEnabled = targetNodes.every((node) => node.data.previewEnabled);
   const canAlign = targetNodes.length > 1;
+  // one node whose component declares authored values gets a generic editor (object
+  // references pick their object on the node itself)
+  const canEditValues =
+    targetNodes.length === 1 &&
+    hasAuthoredValues(targetNodes[0].data.definition) &&
+    !isSpecialComponent(targetNodes[0].data.definition, "objectReference");
   const panelNode =
     targetNodes.length === 1 && isSpecialComponent(targetNodes[0].data.definition, "panel")
       ? targetNodes[0]
@@ -82,6 +92,11 @@ export function GraphNodeContextMenu({
       >
         Preview {previewEnabled ? "Off" : "On"}
       </ContextMenuItem>
+      {canEditValues ? (
+        <ContextMenuItem icon={<SlidersHorizontal />} onClick={onEditValues}>
+          Edit Values…
+        </ContextMenuItem>
+      ) : null}
       <ContextMenuSeparator />
       {panelTextAlign ? (
         <>
